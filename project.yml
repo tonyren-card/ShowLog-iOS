@@ -17,7 +17,6 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: ShowLog/Sources
-    resources:
       - path: ShowLog/Assets.xcassets
     settings:
       base:
