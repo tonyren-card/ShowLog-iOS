@@ -251,8 +251,21 @@ actor SupabaseService {
         var req = URLRequest(url: comps.url!)
         req.httpMethod = "GET"
         headers().forEach { req.setValue($1, forHTTPHeaderField: $0) }
-        let (data, _) = try await URLSession.shared.data(for: req)
-        return try JSONDecoder().decode(T.self, from: data)
+        let (data, response) = try await URLSession.shared.data(for: req)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        #if DEBUG
+        print("[Supabase] GET \(path) → \(status)")
+        if status >= 400 { print("[Supabase] Body: \(String(data: data, encoding: .utf8) ?? "nil")") }
+        #endif
+        do {
+            return try JSONDecoder().decode(T.self, from: data)
+        } catch {
+            #if DEBUG
+            print("[Supabase] Decode error on \(path): \(error)")
+            print("[Supabase] Raw: \(String(data: data, encoding: .utf8) ?? "nil")")
+            #endif
+            throw error
+        }
     }
 
     private func post<B: Encodable, T: Decodable>(path: String, body: B,
