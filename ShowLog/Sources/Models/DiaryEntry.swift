@@ -23,11 +23,12 @@ struct DiaryEntry: Identifiable, Codable {
         showData  = try c.decode(Show.self, forKey: .showData)
         watchedAt = try c.decode(String.self, forKey: .watchedAt)
         notes     = try c.decodeIfPresent(String.self, forKey: .notes) ?? ""
-        // rating may be stored as Double (e.g. 5.0) by the web app
+        // Web app stores rating on a 0.5–5 scale (as Double).
+        // iOS stores on a 1–10 scale (as Int). Multiply web values by 2.
         if let r = try? c.decode(Int.self, forKey: .rating) {
-            rating = r
+            rating = r  // already iOS 1–10 scale
         } else if let r = try? c.decode(Double.self, forKey: .rating) {
-            rating = Int(r)
+            rating = Int((r * 2).rounded())  // web 0.5–5 → iOS 1–10
         } else {
             rating = 0
         }

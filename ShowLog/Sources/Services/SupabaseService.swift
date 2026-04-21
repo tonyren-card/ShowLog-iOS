@@ -218,9 +218,10 @@ actor SupabaseService {
         let rows: [ProgressRow] = try await get(
             path: "/rest/v1/show_progress", query: ["select": "*"])
         return rows.map {
-            ShowProgress(showId: $0.showId,
-                         watchedEpisodes: $0.watchedEpisodes,
-                         totalEpisodes: $0.totalEpisodes ?? 0)
+            let watchedCount = $0.watchedEpisodes.values.filter { $0 }.count
+            return ShowProgress(showId: $0.showId,
+                                watchedEpisodes: $0.watchedEpisodes,
+                                totalEpisodes: $0.totalEpisodes ?? watchedCount)
         }
     }
 
