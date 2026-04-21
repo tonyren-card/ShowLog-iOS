@@ -19,10 +19,12 @@ struct AuthUser: Codable {
 
 struct AuthResponse: Codable {
     let accessToken: String
+    let refreshToken: String
     let user: AuthUser
 
     enum CodingKeys: String, CodingKey {
-        case accessToken = "access_token"
+        case accessToken  = "access_token"
+        case refreshToken = "refresh_token"
         case user
     }
 }
@@ -64,18 +66,30 @@ actor SupabaseService {
     private(set) var accessToken: String?
     private(set) var currentUser: AuthUser?
 
-    private let tokenKey = "supabase_access_token"
-    private let userKey  = "supabase_user"
+    private let tokenKey        = "supabase_access_token"
+    private let refreshTokenKey = "supabase_refresh_token"
+    private let userKey         = "supabase_user"
 
     // MARK: Auth
 
-    func restoreSession() -> AuthUser? {
-        guard let token = UserDefaults.standard.string(forKey: tokenKey),
-              let data  = UserDefaults.standard.data(forKey: userKey),
-              let user  = try? JSONDecoder().decode(AuthUser.self, from: data) else { return nil }
-        accessToken  = token
-        currentUser  = user
-        return user
+    func restoreSession() async -> AuthUser? {
+        guard let refreshToken = UserDefaults.standard.string(forKey: refreshTokenKey),
+              let data = UserDefaults.standard.data(forKey: userKey),
+              let cachedUser = try? JSONDecoder().decode(AuthUser.self, from: data) else { return nil }
+        // Use refresh token to get a fresh access token
+        do {
+            let body = ["refresh_token": refreshToken]
+            let resp: AuthResponse = try await post(
+                path: "/auth/v1/token?grant_type=refresh_token", body: body, auth: false)
+            accessToken  = resp.accessToken
+            currentUser  = resp.user
+            persist(resp)
+            return resp.user
+        } catch {
+            // Refresh failed — clear stale session
+            clearPersisted()
+            return nil
+        }
     }
 
     func signUp(email: String, password: String) async throws -> AuthUser {
@@ -83,7 +97,7 @@ actor SupabaseService {
         let resp: AuthResponse = try await post(path: "/auth/v1/signup", body: body, auth: false)
         accessToken = resp.accessToken
         currentUser = resp.user
-        persist(token: resp.accessToken, user: resp.user)
+        persist(resp)
         return resp.user
     }
 
@@ -93,22 +107,28 @@ actor SupabaseService {
             path: "/auth/v1/token?grant_type=password", body: body, auth: false)
         accessToken = resp.accessToken
         currentUser = resp.user
-        persist(token: resp.accessToken, user: resp.user)
+        persist(resp)
         return resp.user
     }
 
     func signOut() {
         accessToken = nil
         currentUser = nil
-        UserDefaults.standard.removeObject(forKey: tokenKey)
-        UserDefaults.standard.removeObject(forKey: userKey)
+        clearPersisted()
     }
 
-    private func persist(token: String, user: AuthUser) {
-        UserDefaults.standard.set(token, forKey: tokenKey)
-        if let data = try? JSONEncoder().encode(user) {
+    private func persist(_ resp: AuthResponse) {
+        UserDefaults.standard.set(resp.accessToken, forKey: tokenKey)
+        UserDefaults.standard.set(resp.refreshToken, forKey: refreshTokenKey)
+        if let data = try? JSONEncoder().encode(resp.user) {
             UserDefaults.standard.set(data, forKey: userKey)
         }
+    }
+
+    private func clearPersisted() {
+        UserDefaults.standard.removeObject(forKey: tokenKey)
+        UserDefaults.standard.removeObject(forKey: refreshTokenKey)
+        UserDefaults.standard.removeObject(forKey: userKey)
     }
 
     func updateUsername(_ username: String) async throws {
