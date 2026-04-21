@@ -47,7 +47,7 @@ private struct WatchedRow: Codable {
 private struct ProgressRow: Codable {
     let showId: Int
     let watchedEpisodes: [String: Bool]
-    let totalEpisodes: Int
+    let totalEpisodes: Int?
     enum CodingKeys: String, CodingKey {
         case showId = "show_id"
         case watchedEpisodes = "watched_episodes"
@@ -141,7 +141,7 @@ actor SupabaseService {
 
     func loadWatchlist() async throws -> [Show] {
         let rows: [WatchlistRow] = try await get(
-            path: "/rest/v1/watchlist_entries", query: ["select": "*", "order": "created_at.desc"])
+            path: "/rest/v1/watchlist_entries", query: ["select": "*"])
         return rows.map(\.showData)
     }
 
@@ -220,7 +220,7 @@ actor SupabaseService {
         return rows.map {
             ShowProgress(showId: $0.showId,
                          watchedEpisodes: $0.watchedEpisodes,
-                         totalEpisodes: $0.totalEpisodes)
+                         totalEpisodes: $0.totalEpisodes ?? 0)
         }
     }
 
