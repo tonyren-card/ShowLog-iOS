@@ -19,10 +19,11 @@ final class AppState {
     var isSearching   = false
 
     // MARK: - User data
-    var watchlist:  [Show] = []
-    var watched:    Set<Int> = []
-    var diary:      [DiaryEntry] = []
-    var progress:   [Int: ShowProgress] = [:]  // showId → progress
+    var watchlist:     [Show] = []
+    var watched:       Set<Int> = []
+    var watchedShows:  [Show] = []   // ordered most-recent first, includes show data
+    var diary:         [DiaryEntry] = []
+    var progress:      [Int: ShowProgress] = [:]  // showId → progress
 
     // MARK: - UI state
     var selectedShow:  Show?
@@ -59,7 +60,9 @@ final class AppState {
         async let d   = SupabaseService.shared.loadDiary()
         async let pr  = SupabaseService.shared.loadProgress()
         watchlist = (try? await wl) ?? []
-        watched   = (try? await wd) ?? []
+        let watchedResult = try? await wd
+        watched      = watchedResult?.ids ?? []
+        watchedShows = watchedResult?.shows ?? []
         diary     = (try? await d)  ?? []
         let prList = (try? await pr) ?? []
         progress  = Dictionary(uniqueKeysWithValues: prList.map { ($0.showId, $0) })
@@ -68,6 +71,7 @@ final class AppState {
     func clearUserData() {
         watchlist = []
         watched = []
+        watchedShows = []
         diary = []
         progress = [:]
         user = nil
@@ -139,8 +143,15 @@ final class AppState {
 
     func markWatched(show: Show) async {
         guard isSignedIn else { showAuthSheet = true; return }
-        watched.insert(show.id)
-        try? await SupabaseService.shared.markWatched(show: show)
+        if watched.contains(show.id) {
+            watched.remove(show.id)
+            watchedShows.removeAll { $0.id == show.id }
+            try? await SupabaseService.shared.removeWatched(showId: show.id)
+        } else {
+            watched.insert(show.id)
+            watchedShows.insert(show, at: 0)
+            try? await SupabaseService.shared.markWatched(show: show)
+        }
     }
 
     func isWatched(_ showId: Int) -> Bool { watched.contains(showId) }
@@ -153,7 +164,8 @@ final class AppState {
         let entry = try await SupabaseService.shared.addDiaryEntry(
             showId: show.id, show: show,
             watchedAt: watchedAt, notes: notes, rating: rating)
-        diary.insert(entry, at: 0)
+        diary.append(entry)
+        diary.sort { $0.watchedAt > $1.watchedAt }
         watched.insert(show.id)
         try? await SupabaseService.shared.markWatched(show: show)
     }
@@ -163,6 +175,7 @@ final class AppState {
         if let i = diary.firstIndex(where: { $0.id == entry.id }) {
             diary[i] = entry
         }
+        diary.sort { $0.watchedAt > $1.watchedAt }
     }
 
     func deleteDiaryEntry(id: String) async throws {

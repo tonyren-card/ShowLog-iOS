@@ -44,6 +44,14 @@ private struct WatchedRow: Codable {
     enum CodingKeys: String, CodingKey { case showId = "show_id" }
 }
 
+private struct WatchedShowRow: Codable {
+    let showId: Int
+    let showData: Show
+    enum CodingKeys: String, CodingKey {
+        case showId = "show_id"; case showData = "show_data"
+    }
+}
+
 private struct ProgressRow: Codable {
     let showId: Int
     let watchedEpisodes: [String: Bool]
@@ -161,10 +169,11 @@ actor SupabaseService {
 
     // MARK: Watched
 
-    func loadWatched() async throws -> Set<Int> {
-        let rows: [WatchedRow] = try await get(
-            path: "/rest/v1/watched_shows", query: ["select": "show_id"])
-        return Set(rows.map(\.showId))
+    func loadWatched() async throws -> (ids: Set<Int>, shows: [Show]) {
+        let rows: [WatchedShowRow] = try await get(
+            path: "/rest/v1/watched_shows",
+            query: ["select": "show_id,show_data"])
+        return (Set(rows.map(\.showId)), rows.map(\.showData))
     }
 
     func markWatched(show: Show) async throws {
@@ -174,6 +183,11 @@ actor SupabaseService {
         ]
         try await upsert(path: "/rest/v1/watched_shows", body: body,
                          onConflict: "user_id,show_id")
+    }
+
+    func removeWatched(showId: Int) async throws {
+        try await delete(path: "/rest/v1/watched_shows",
+                         query: ["show_id": "eq.\(showId)"])
     }
 
     // MARK: Diary
@@ -190,7 +204,7 @@ actor SupabaseService {
             "show_data":  AnyEncodable(show),
             "watched_at": AnyEncodable(watchedAt),
             "notes":      AnyEncodable(notes),
-            "rating":     AnyEncodable(rating)
+            "rating":     AnyEncodable(Double(rating) / 2.0)  // store on 0.5–5 scale (web format)
         ]
         let entries: [DiaryEntry] = try await post(path: "/rest/v1/diary_entries",
                                                    body: body, returning: true)
@@ -202,7 +216,7 @@ actor SupabaseService {
         let body: [String: AnyEncodable] = [
             "watched_at": AnyEncodable(entry.watchedAt),
             "notes":      AnyEncodable(entry.notes),
-            "rating":     AnyEncodable(entry.rating)
+            "rating":     AnyEncodable(Double(entry.rating) / 2.0)  // store on 0.5–5 scale (web format)
         ]
         try await patch(path: "/rest/v1/diary_entries",
                         query: ["id": "eq.\(entry.id)"], body: body)
@@ -278,8 +292,22 @@ actor SupabaseService {
         if returning { h["Prefer"] = "return=representation" }
         h.forEach { req.setValue($1, forHTTPHeaderField: $0) }
         req.httpBody = try JSONEncoder().encode(body)
-        let (data, _) = try await URLSession.shared.data(for: req)
-        return try JSONDecoder().decode(T.self, from: data)
+        let (data, response) = try await URLSession.shared.data(for: req)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        #if DEBUG
+        print("[Supabase] POST \(path) → \(status)")
+        if status >= 400 { print("[Supabase] Body: \(String(data: data, encoding: .utf8) ?? "nil")") }
+        #endif
+        guard status < 400 else { throw URLError(.badServerResponse) }
+        do {
+            return try JSONDecoder().decode(T.self, from: data)
+        } catch {
+            #if DEBUG
+            print("[Supabase] Decode error on POST \(path): \(error)")
+            print("[Supabase] Raw: \(String(data: data, encoding: .utf8) ?? "nil")")
+            #endif
+            throw error
+        }
     }
 
     // Overload for Void response (e.g. sign-out, delete with no return)
