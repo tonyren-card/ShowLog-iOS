@@ -181,10 +181,14 @@ final class AppState {
         p.watchedEpisodes[key] = !(p.watchedEpisodes[key] ?? false)
         p.totalEpisodes = totalEpisodes
         progress[show.id] = p
-        try? await SupabaseService.shared.updateProgress(
-            showId: show.id,
-            watchedEpisodes: p.watchedEpisodes,
-            totalEpisodes: totalEpisodes)
+        do {
+            try await SupabaseService.shared.updateProgress(
+                showId: show.id,
+                watchedEpisodes: p.watchedEpisodes,
+                totalEpisodes: totalEpisodes)
+        } catch {
+            print("[AppState] toggleEpisode save failed: \(error)")
+        }
     }
 
     func markSeasonWatched(show: Show, season: ShowSeason,
@@ -200,9 +204,13 @@ final class AppState {
         }
         p.totalEpisodes = totalEpisodes
         progress[show.id] = p
-        try? await SupabaseService.shared.updateProgress(
-            showId: show.id,
-            watchedEpisodes: p.watchedEpisodes,
-            totalEpisodes: totalEpisodes)
+        do {
+            try await SupabaseService.shared.updateProgress(
+                showId: show.id,
+                watchedEpisodes: p.watchedEpisodes,
+                totalEpisodes: totalEpisodes)
+        } catch {
+            print("[AppState] markSeasonWatched save failed: \(error)")
+        }
     }
 }

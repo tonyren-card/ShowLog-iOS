@@ -320,7 +320,15 @@ actor SupabaseService {
         h["Prefer"] = "resolution=merge-duplicates"
         h.forEach { req.setValue($1, forHTTPHeaderField: $0) }
         req.httpBody = try JSONEncoder().encode(body)
-        _ = try await URLSession.shared.data(for: req)
+        let (data, response) = try await URLSession.shared.data(for: req)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        #if DEBUG
+        print("[Supabase] UPSERT \(path) → \(status)")
+        if status >= 400 { print("[Supabase] Body: \(String(data: data, encoding: .utf8) ?? "nil")") }
+        #endif
+        guard status < 400 else {
+            throw URLError(.badServerResponse)
+        }
     }
 
     private func delete(path: String, query: [String: String] = [:]) async throws {
@@ -329,7 +337,12 @@ actor SupabaseService {
         var req = URLRequest(url: comps.url!)
         req.httpMethod = "DELETE"
         headers().forEach { req.setValue($1, forHTTPHeaderField: $0) }
-        _ = try await URLSession.shared.data(for: req)
+        let (data, response) = try await URLSession.shared.data(for: req)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        #if DEBUG
+        print("[Supabase] DELETE \(path) → \(status)")
+        if status >= 400 { print("[Supabase] Body: \(String(data: data, encoding: .utf8) ?? "nil")") }
+        #endif
     }
 }
 
