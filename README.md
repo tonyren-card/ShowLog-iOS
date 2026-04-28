@@ -4,6 +4,8 @@ Native SwiftUI iOS app for [ShowLog](https://showlogd.netlify.app) — a TV show
 
 Part of the v1.1.0 release alongside a branding refresh. The web app (React + Vite + Supabase + TMDB) lives in a separate repo.
 
+v1.1.0 submitted to the App Store on Apr 28, 2026.
+
 ## Features
 
 - **Home** — Continue watching cards and recently completed shows
@@ -17,7 +19,7 @@ Matches the web app's dark theme and green (`#00E054`) accent.
 
 ## Requirements
 
-- iOS 17.0+
+- iOS 16.0+
 - Xcode 16
 - Swift 5.9
 

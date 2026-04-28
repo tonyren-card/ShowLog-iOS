@@ -1,6 +1,6 @@
 # ShowLog iOS — Roadmap & Feature Tracker
 
-**Last updated:** Apr 27, 2026 | Part of [showlogd.netlify.app](https://showlogd.netlify.app) | Stack: SwiftUI + iOS 17
+**Last updated:** Apr 28, 2026 | Part of [showlogd.netlify.app](https://showlogd.netlify.app) | Stack: SwiftUI + iOS 16+
 
 ---
 
@@ -11,7 +11,7 @@
 ---
 
 #### v1.1.0
-<sub>Published 2026-04-27</sub>
+<sub>Published 2026-04-27 | Submitted to App Store 2026-04-28</sub>
 
 **Supabase sync, data fixes, and diary improvements.**
 
