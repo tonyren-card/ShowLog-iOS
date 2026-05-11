@@ -100,13 +100,29 @@ actor SupabaseService {
         }
     }
 
-    func signUp(email: String, password: String) async throws -> AuthUser {
+    // Returns the signed-in user if email confirmation is disabled, or nil if confirmation email was sent.
+    func signUp(email: String, password: String) async throws -> AuthUser? {
         let body = ["email": email, "password": password]
-        let resp: AuthResponse = try await post(path: "/auth/v1/signup", body: body, auth: false)
-        accessToken = resp.accessToken
-        currentUser = resp.user
-        persist(resp)
-        return resp.user
+        var req = URLRequest(url: URL(string: base + "/auth/v1/signup")!)
+        req.httpMethod = "POST"
+        headers(auth: false).forEach { req.setValue($1, forHTTPHeaderField: $0) }
+        req.httpBody = try JSONEncoder().encode(body)
+        let (data, response) = try await URLSession.shared.data(for: req)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        if status >= 400 {
+            let msg = (try? JSONDecoder().decode(SupabaseError.self, from: data))?.effectiveMessage ?? "Sign up failed (\(status))"
+            throw SupabaseAuthError(message: msg)
+        }
+        // When email confirmation is required, Supabase returns a bare user object with no access_token.
+        // When confirmation is disabled (or auto-confirmed), it returns a full AuthResponse with tokens.
+        if let resp = try? JSONDecoder().decode(AuthResponse.self, from: data),
+           !resp.accessToken.isEmpty {
+            accessToken = resp.accessToken
+            currentUser = resp.user
+            persist(resp)
+            return resp.user
+        }
+        return nil
     }
 
     func signIn(email: String, password: String) async throws -> AuthUser {
@@ -137,6 +153,22 @@ actor SupabaseService {
         UserDefaults.standard.removeObject(forKey: tokenKey)
         UserDefaults.standard.removeObject(forKey: refreshTokenKey)
         UserDefaults.standard.removeObject(forKey: userKey)
+    }
+
+    func deleteAccount() async throws {
+        guard let token = accessToken else { throw ServiceError.unauthorized }
+        var req = URLRequest(url: URL(string: Config.netlifyBaseURL + "/api/delete-account")!)
+        req.httpMethod = "POST"
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let (data, response) = try await URLSession.shared.data(for: req)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard status == 200 else {
+            let msg = (try? JSONDecoder().decode([String: String].self, from: data))?["error"]
+            throw DeleteAccountError.failed(msg ?? "Unknown error")
+        }
+        clearPersisted()
+        accessToken = nil
+        currentUser = nil
     }
 
     func updateUsername(_ username: String) async throws {
@@ -298,7 +330,10 @@ actor SupabaseService {
         print("[Supabase] POST \(path) → \(status)")
         if status >= 400 { print("[Supabase] Body: \(String(data: data, encoding: .utf8) ?? "nil")") }
         #endif
-        guard status < 400 else { throw URLError(.badServerResponse) }
+        if status >= 400 {
+            let msg = (try? JSONDecoder().decode(SupabaseError.self, from: data))?.effectiveMessage ?? "Request failed (\(status))"
+            throw SupabaseAuthError(message: msg)
+        }
         do {
             return try JSONDecoder().decode(T.self, from: data)
         } catch {
@@ -379,6 +414,25 @@ actor SupabaseService {
 enum ServiceError: Error {
     case noData
     case unauthorized
+}
+
+struct SupabaseAuthError: LocalizedError {
+    let message: String
+    var errorDescription: String? { message }
+}
+
+private struct SupabaseError: Decodable {
+    let message: String?
+    let msg: String?
+    var effectiveMessage: String? { message ?? msg }
+}
+
+enum DeleteAccountError: LocalizedError {
+    case failed(String)
+    var errorDescription: String? {
+        if case .failed(let msg) = self { return msg }
+        return nil
+    }
 }
 
 // MARK: - Type-erased Encodable wrapper

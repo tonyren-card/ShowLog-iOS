@@ -1,12 +1,26 @@
 # ShowLog iOS — Roadmap & Feature Tracker
 
-**Last updated:** Apr 28, 2026 | Part of [showlogd.netlify.app](https://showlogd.netlify.app) | Stack: SwiftUI + iOS 16+
+**Last updated:** May 11, 2026 | Part of [showlogd.netlify.app](https://showlogd.netlify.app) | Stack: SwiftUI + iOS 16+
 
 ---
 
 ## 🚀 Releases
 
 ### v1.1 — Apr 2026
+
+---
+
+#### v1.1.1
+<sub>Published 2026-05-11</sub>
+
+**Account deletion and sign-up fixes for App Store compliance.**
+
+##### Features
+- **Account Deletion** — "Delete Account" button added to the Profile tab below Sign Out. Tapping it reveals a confirmation panel requiring the user to type `DELETE` before proceeding. On confirm, a `POST` request is sent to the shared `/api/delete-account` Netlify Function with the user's Bearer token, which deletes all Supabase data and the auth user server-side. The app then clears local state. Added to satisfy App Store Review Guidelines requirement for in-app account deletion.
+
+##### Fixes
+- **BUG-05: Sign-up decoding crash** — `SupabaseService.signUp` was decoding the response as `AuthResponse` in all cases. When email confirmation is required, Supabase returns a bare user object with no `access_token`, causing a "missing key" decode error. Fixed by manually performing the request and attempting `AuthResponse` decode only when `access_token` is present; returns `nil` (confirmation required) otherwise.
+- **BUG-06: Auth errors not surfaced** — `signIn` and other auth calls threw generic `URLError(.badServerResponse)` (-1011) on 4xx responses, hiding the actual Supabase error message (e.g. "Email not confirmed", "Invalid login credentials"). Fixed by decoding Supabase's `{ "message": "..." }` / `{ "msg": "..." }` error body and throwing a `SupabaseAuthError` with the human-readable message.
 
 ---
 
@@ -74,6 +88,9 @@
 
 | ID | Item | Type | Completed |
 |----|------|------|-----------|
+| INF-05 | **Account Deletion** — Profile tab delete flow with typed `DELETE` confirmation. Calls shared `/api/delete-account` Netlify Function to wipe all Supabase data and auth user. App Store compliance. | Infra → Done | May 11 |
+| BUG-05 | **Sign-up Decoding Crash** — `signUp` now handles both response shapes: full `AuthResponse` (email confirmation disabled) and bare user object (confirmation required). Returns `nil` for the latter so `AuthView` shows the confirmation message. | Bug → Fixed | May 11 |
+| BUG-06 | **Auth Errors Not Surfaced** — `post` helper now decodes Supabase `message`/`msg` error body on 4xx and throws `SupabaseAuthError` with the human-readable string instead of generic `-1011`. | Bug → Fixed | May 11 |
 | INF-02 | **TMDB Integration** — `TMDBService` with trending, popular, top-rated, search, show detail + credits, and season/episode endpoints. `AsyncImage` poster loading throughout. | Infra → Done | Apr 2026 |
 | INF-03 | **Supabase Backend** — `SupabaseService` with direct REST API calls. Tables: `watchlist_entries`, `diary_entries`, `watched_shows`, `show_progress`. Mirrors web app schema. | Infra → Done | Apr 2026 |
 | INF-04 | **User Authentication** — Supabase Auth email + password sign-up/sign-in. Auth-gated Watchlist, Diary, rating, and episode tracking actions. Username editing in profile. | Infra → Done | Apr 2026 |

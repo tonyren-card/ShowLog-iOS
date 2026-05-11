@@ -1,10 +1,15 @@
 import SwiftUI
 
+// Assuming AppState is an ObservableObject for use with @EnvironmentObject
 struct ProfileView: View {
-    @Environment(AppState.self) var state
+    @EnvironmentObject var state: AppState
     @State private var editingUsername = false
     @State private var usernameInput   = ""
     @State private var selectedShow: Show?
+    @State private var showDeleteConfirm = false
+    @State private var deleteConfirmText = ""
+    @State private var deleting          = false
+    @State private var deleteError: String?
 
     private var initial: String {
         let name = state.user?.userMetadata?.username ?? state.user?.email ?? "?"
@@ -27,17 +32,23 @@ struct ProfileView: View {
     var body: some View {
         NavigationStack {
             if !state.isSignedIn {
-                ContentUnavailableView(
-                    "Sign in to view your profile",
-                    systemImage: "person.circle",
-                    description: Text("See your stats and watch history.")
-                )
-                .overlay(alignment: .bottom) {
+                VStack(spacing: 16) {
+                    Image(systemName: "person.circle")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 80, height: 80)
+                        .foregroundColor(Color.border)
+                    Text("Sign in to view your profile")
+                        .font(.title2).fontWeight(.semibold)
+                    Text("See your stats and watch history.")
+                        .font(.subheadline)
+                        .foregroundColor(Color.textMuted)
                     Button("Sign In") { state.showAuthSheet = true }
                         .buttonStyle(.borderedProminent)
                         .tint(Color.showGreen)
-                        .padding(.bottom, 40)
+                        .padding(.top, 20)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView {
                     VStack(spacing: 24) {
@@ -150,6 +161,86 @@ struct ProfileView: View {
                             Task { await state.signOut() }
                         }
                         .padding(.top, 8)
+
+                        // Delete account
+                        if !showDeleteConfirm {
+                            Button("Delete Account") {
+                                showDeleteConfirm = true
+                                deleteConfirmText = ""
+                                deleteError = nil
+                            }
+                            .font(.system(size: 14))
+                            .foregroundStyle(Color(red: 0.63, green: 0.31, blue: 0.31))
+                        }
+
+                        if showDeleteConfirm {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Delete your account?")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(Color(red: 0.99, green: 0.64, blue: 0.64))
+
+                                Text("This will permanently delete your account and all data — watchlist, diary, and episode progress. This cannot be undone.")
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(Color.textMuted)
+
+                                Text("Type DELETE to confirm:")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(Color.textMuted)
+
+                                TextField("DELETE", text: $deleteConfirmText)
+                                    .textInputAutocapitalization(.characters)
+                                    .autocorrectionDisabled()
+                                    .font(.system(size: 13, design: .monospaced))
+                                    .foregroundStyle(Color(red: 0.99, green: 0.64, blue: 0.64))
+                                    .padding(10)
+                                    .background(Color.background)
+                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(red: 0.35, green: 0.13, blue: 0.13), lineWidth: 1))
+
+                                if let err = deleteError {
+                                    Text(err)
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(.red)
+                                }
+
+                                HStack(spacing: 10) {
+                                    Button {
+                                        guard deleteConfirmText == "DELETE" else {
+                                            deleteError = "Type DELETE to confirm."
+                                            return
+                                        }
+                                        deleting = true
+                                        deleteError = nil
+                                        Task {
+                                            do {
+                                                try await state.deleteAccount()
+                                            } catch {
+                                                deleteError = error.localizedDescription
+                                                deleting = false
+                                            }
+                                        }
+                                    } label: {
+                                        Text(deleting ? "Deleting…" : "Yes, delete my account")
+                                            .font(.system(size: 13, weight: .semibold))
+                                            .foregroundStyle(Color(red: 0.99, green: 0.64, blue: 0.64))
+                                    }
+                                    .disabled(deleting)
+
+                                    Button("Cancel") {
+                                        showDeleteConfirm = false
+                                        deleteConfirmText = ""
+                                        deleteError = nil
+                                    }
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(Color.textMuted)
+                                }
+                            }
+                            .padding(16)
+                            .background(Color(red: 0.1, green: 0.04, blue: 0.04))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color(red: 0.35, green: 0.13, blue: 0.13), lineWidth: 1))
+                            .padding(.horizontal, 20)
+                        }
                     }
                     .padding(.top, 32)
                     .padding(.bottom, 40)
@@ -159,11 +250,11 @@ struct ProfileView: View {
             }
         }
         .sheet(item: $selectedShow) { show in
-            ShowDetailView(show: show).environment(state)
+            ShowDetailView(show: show).environmentObject(state)
         }
         .sheet(isPresented: Binding(get: { state.showAuthSheet },
                                     set: { state.showAuthSheet = $0 })) {
-            AuthView().environment(state)
+            AuthView().environmentObject(state)
         }
     }
 }

@@ -1,35 +1,34 @@
 import Foundation
-import Observation
 
-@Observable
-final class AppState {
+@MainActor
+final class AppState: ObservableObject {
 
     // MARK: - Auth
-    var user: AuthUser?
+    @Published var user: AuthUser?
     var isSignedIn: Bool { user != nil }
 
     // MARK: - Browse
-    var trending:  [Show] = []
-    var popular:   [Show] = []
-    var topRated:  [Show] = []
+    @Published var trending:  [Show] = []
+    @Published var popular:   [Show] = []
+    @Published var topRated:  [Show] = []
 
     // MARK: - Search
-    var searchQuery   = ""
-    var searchResults: [Show] = []
-    var isSearching   = false
+    @Published var searchQuery   = ""
+    @Published var searchResults: [Show] = []
+    @Published var isSearching   = false
 
     // MARK: - User data
-    var watchlist:     [Show] = []
-    var watched:       Set<Int> = []
-    var watchedShows:  [Show] = []   // ordered most-recent first, includes show data
-    var diary:         [DiaryEntry] = []
-    var progress:      [Int: ShowProgress] = [:]  // showId → progress
+    @Published var watchlist:     [Show] = []
+    @Published var watched:       Set<Int> = []
+    @Published var watchedShows:  [Show] = []   // ordered most-recent first, includes show data
+    @Published var diary:         [DiaryEntry] = []
+    @Published var progress:      [Int: ShowProgress] = [:]  // showId → progress
 
     // MARK: - UI state
-    var selectedShow:  Show?
-    var showAuthSheet  = false
-    var errorMessage:  String?
-    var isLoadingBrowse = false
+    @Published var selectedShow:  Show?
+    @Published var showAuthSheet  = false
+    @Published var errorMessage:  String?
+    @Published var isLoadingBrowse = false
 
     private var searchTask: Task<Void, Never>?
 
@@ -86,12 +85,20 @@ final class AppState {
     }
 
     func signUp(email: String, password: String) async throws {
-        let u = try await SupabaseService.shared.signUp(email: email, password: password)
-        user = u
+        if let u = try await SupabaseService.shared.signUp(email: email, password: password) {
+            user = u
+            await loadUserData()
+        }
+        // nil means confirmation email sent — caller shows the confirmation message
     }
 
     func signOut() async {
         await SupabaseService.shared.signOut()
+        clearUserData()
+    }
+
+    func deleteAccount() async throws {
+        try await SupabaseService.shared.deleteAccount()
         clearUserData()
     }
 
@@ -188,8 +195,7 @@ final class AppState {
     func toggleEpisode(show: Show, season: Int, episode: Int,
                        totalEpisodes: Int) async {
         guard isSignedIn else { showAuthSheet = true; return }
-        var p = progress[show.id] ?? ShowProgress(
-            showId: show.id, watchedEpisodes: [:], totalEpisodes: totalEpisodes)
+        var p = progress[show.id] ?? ShowProgress(showId: show.id, watchedEpisodes: [:], totalEpisodes: totalEpisodes)
         let key = "\(season)-\(episode)"
         p.watchedEpisodes[key] = !(p.watchedEpisodes[key] ?? false)
         p.totalEpisodes = totalEpisodes
@@ -207,8 +213,7 @@ final class AppState {
     func markSeasonWatched(show: Show, season: ShowSeason,
                            totalEpisodes: Int) async {
         guard isSignedIn else { showAuthSheet = true; return }
-        var p = progress[show.id] ?? ShowProgress(
-            showId: show.id, watchedEpisodes: [:], totalEpisodes: totalEpisodes)
+        var p = progress[show.id] ?? ShowProgress(showId: show.id, watchedEpisodes: [:], totalEpisodes: totalEpisodes)
         let allWatched = season.episodes.allSatisfy {
             p.isWatched(season: season.seasonNumber, episode: $0.episodeNumber)
         }
