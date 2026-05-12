@@ -79,8 +79,11 @@
 | FEA-11 | **Social / Friends Feed** | Feature | Medium | Follow other users and see their recent diary entries in a feed. Friends' ratings on show detail pages. "Popular with friends" section on Home. |
 | FEA-12 | **Show Lists** | Feature | Medium | Create and share curated lists (e.g. "Best HBO Shows", "Comfort Watches"). Ordered, titled, with description. Public lists are discoverable. |
 | FEA-13 | **Streaming Availability** | Feature | Medium | Show which platforms a show is on via TMDB `watch/providers`. Platform logos on show cards. Filter watchlist by platform. |
-| UI-01 | **Public Profile** | UI | Medium | Public profile showing watch stats, recent diary entries, top shows, and ratings distribution. Private by default. |
 | FEA-14 | **Reviews & Notes** | Feature | Low | Longer-form reviews per show beyond a star rating. Public or private. |
+| FEA-17 | **Recent Searches** | Feature | Low | In the Search tab, show a list of the user's most recent search keywords when the search field is empty or first focused. Tapping a keyword repopulates the field and triggers the search immediately. Keywords stored in `UserDefaults` (max 10 entries, newest first). A "Clear" button removes all entries. No account required. |
+| FEA-18 | **Settings Menu** | Feature | Medium | Dedicated Settings screen pushed from the Profile tab (gear icon or "Settings" row). Organizes account actions and app preferences in one place. **Account** section: Sign Out and Delete Account (moved from the main Profile screen). **Preferences** section: placeholder for future app-level settings (e.g. default rating scale, diary sort order). Keeps the Profile screen focused on user stats and identity. |
+| FEA-19 | **Profile Picture** | Feature | Low | Users can upload a profile picture from the Settings screen. Image is stored in a Supabase Storage bucket (`avatars/`) and the public URL saved to user metadata. The avatar is displayed on the Profile tab and in any future social-facing surfaces. Falls back to the initial letter badge if no avatar is set. Tapping the avatar on the Profile screen opens the system photo picker (`PhotosUI`). |
+| UI-01 | **Public Profile** | UI | Medium | Public profile showing watch stats, recent diary entries, top shows, and ratings distribution. Private by default. |
 
 ---
 
