@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct HomeView: View {
-    @Environment(AppState.self) var state
+    @EnvironmentObject var state: AppState
     @State private var selectedShow: Show?
 
     var body: some View {
@@ -52,15 +52,21 @@ struct HomeView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     if state.isSignedIn {
-                        Circle()
-                            .fill(Color.showGreen.opacity(0.2))
-                            .frame(width: 32, height: 32)
-                            .overlay(
-                                Text(String(state.user?.userMetadata?.username?.prefix(1)
-                                     ?? state.user?.email?.prefix(1) ?? "?").uppercased())
-                                    .font(.system(size: 13, weight: .bold))
-                                    .foregroundStyle(Color.showGreen)
-                            )
+                        Button { state.selectedTab = 4 } label: {
+                            if let urlStr = state.avatarUrl, let url = URL(string: urlStr) {
+                                AsyncImage(url: url) { phase in
+                                    if case .success(let image) = phase {
+                                        image.resizable().scaledToFill()
+                                            .frame(width: 32, height: 32)
+                                            .clipShape(Circle())
+                                    } else {
+                                        toolbarBadge
+                                    }
+                                }
+                            } else {
+                                toolbarBadge
+                            }
+                        }
                     } else {
                         Button("Sign In") { state.showAuthSheet = true }
                             .tint(Color.showGreen)
@@ -70,13 +76,25 @@ struct HomeView: View {
         }
         .sheet(item: $selectedShow) { show in
             ShowDetailView(show: show)
-                .environment(state)
+                .environmentObject(state)
         }
         .sheet(isPresented: Binding(get: { state.showAuthSheet },
                                     set: { state.showAuthSheet = $0 })) {
-            AuthView().environment(state)
+            AuthView().environmentObject(state)
         }
         .task { await state.loadBrowse() }
+    }
+
+    private var toolbarBadge: some View {
+        Circle()
+            .fill(Color.showGreen.opacity(0.2))
+            .frame(width: 32, height: 32)
+            .overlay(
+                Text(String(state.user?.userMetadata?.username?.prefix(1)
+                     ?? state.user?.email?.prefix(1) ?? "?").uppercased())
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(Color.showGreen)
+            )
     }
 
     private func showRow(title: String, shows: [Show]) -> some View {

@@ -1,6 +1,7 @@
 import SwiftUI
+import PhotosUI
+import UIKit
 
-// Assuming AppState is an ObservableObject for use with @EnvironmentObject
 struct ProfileView: View {
     @EnvironmentObject var state: AppState
     @State private var editingUsername = false
@@ -10,6 +11,8 @@ struct ProfileView: View {
     @State private var deleteConfirmText = ""
     @State private var deleting          = false
     @State private var deleteError: String?
+    @State private var pickerItem: PhotosPickerItem?
+    @State private var uploading = false
 
     private var initial: String {
         let name = state.user?.userMetadata?.username ?? state.user?.email ?? "?"
@@ -20,6 +23,34 @@ struct ProfileView: View {
         state.user?.userMetadata?.username
             ?? state.user?.email
             ?? "Guest"
+    }
+
+    @ViewBuilder private var avatarImage: some View {
+        if let urlStr = state.avatarUrl, let url = URL(string: urlStr) {
+            AsyncImage(url: url) { phase in
+                switch phase {
+                case .success(let image):
+                    image.resizable().scaledToFill()
+                        .frame(width: 80, height: 80)
+                        .clipShape(Circle())
+                default:
+                    letterBadge
+                }
+            }
+        } else {
+            letterBadge
+        }
+    }
+
+    private var letterBadge: some View {
+        Circle()
+            .fill(Color.showGreen.opacity(0.15))
+            .frame(width: 80, height: 80)
+            .overlay(
+                Text(initial)
+                    .font(.system(size: 32, weight: .bold))
+                    .foregroundStyle(Color.showGreen)
+            )
     }
 
     private var memberSince: String {
@@ -53,14 +84,40 @@ struct ProfileView: View {
                 ScrollView {
                     VStack(spacing: 24) {
                         // Avatar
-                        Circle()
-                            .fill(Color.showGreen.opacity(0.15))
-                            .frame(width: 80, height: 80)
-                            .overlay(
-                                Text(initial)
-                                    .font(.system(size: 32, weight: .bold))
-                                    .foregroundStyle(Color.showGreen)
-                            )
+                        PhotosPicker(selection: $pickerItem, matching: .images) {
+                            ZStack(alignment: .bottomTrailing) {
+                                avatarImage
+                                    .overlay {
+                                        if uploading {
+                                            Circle()
+                                                .fill(.black.opacity(0.4))
+                                                .frame(width: 80, height: 80)
+                                            ProgressView().tint(.white)
+                                        }
+                                    }
+                                Image(systemName: "camera.fill")
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                    .padding(6)
+                                    .background(Color.showGreen)
+                                    .clipShape(Circle())
+                                    .offset(x: 4, y: 4)
+                            }
+                        }
+                        .disabled(uploading)
+                        .onChange(of: pickerItem) { item in
+                            guard let item else { return }
+                            Task {
+                                uploading = true
+                                defer { uploading = false }
+                                if let data = try? await item.loadTransferable(type: Data.self),
+                                   let uiImage = UIImage(data: data),
+                                   let jpeg = uiImage.jpegData(compressionQuality: 0.8) {
+                                    try? await state.uploadAvatar(jpeg)
+                                }
+                                pickerItem = nil
+                            }
+                        }
 
                         // Username
                         VStack(spacing: 4) {

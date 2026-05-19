@@ -14,6 +14,12 @@ struct AuthUser: Codable {
 
     struct UserMeta: Codable {
         var username: String?
+        var avatarUrl: String?
+
+        enum CodingKeys: String, CodingKey {
+            case username
+            case avatarUrl = "avatar_url"
+        }
     }
 }
 
@@ -177,6 +183,33 @@ actor SupabaseService {
         currentUser?.userMetadata?.username = username
     }
 
+    func uploadAvatar(imageData: Data, userId: String) async throws -> String {
+        guard let token = accessToken else { throw ServiceError.unauthorized }
+        let urlStr = "\(base)/storage/v1/object/avatars/\(userId).jpg"
+        var req = URLRequest(url: URL(string: urlStr)!)
+        req.httpMethod = "POST"
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        req.setValue(anonKey, forHTTPHeaderField: "apikey")
+        req.setValue("image/jpeg", forHTTPHeaderField: "Content-Type")
+        req.setValue("true", forHTTPHeaderField: "x-upsert")
+        req.httpBody = imageData
+        let (data, response) = try await URLSession.shared.data(for: req)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        #if DEBUG
+        print("[Supabase] UPLOAD avatar → \(status)")
+        if status >= 400 { print("[Supabase] Body: \(String(data: data, encoding: .utf8) ?? "nil")") }
+        #endif
+        guard status < 400 else { throw URLError(.badServerResponse) }
+        let ts = Int(Date().timeIntervalSince1970)
+        return "\(base)/storage/v1/object/public/avatars/\(userId).jpg?t=\(ts)"
+    }
+
+    func updateAvatarUrl(_ url: String) async throws {
+        let body = ["data": ["avatar_url": url]]
+        let updated: AuthUser = try await put(path: "/auth/v1/user", body: body)
+        currentUser = updated
+    }
+
     // MARK: Watchlist
 
     func loadWatchlist() async throws -> [Show] {
@@ -204,7 +237,7 @@ actor SupabaseService {
     func loadWatched() async throws -> (ids: Set<Int>, shows: [Show]) {
         let rows: [WatchedShowRow] = try await get(
             path: "/rest/v1/watched_shows",
-            query: ["select": "show_id,show_data"])
+            query: ["select": "show_id,show_data", "order": "marked_at.desc"])
         return (Set(rows.map(\.showId)), rows.map(\.showData))
     }
 

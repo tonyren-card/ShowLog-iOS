@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct DiaryView: View {
-    @Environment(AppState.self) var state
+    @EnvironmentObject var state: AppState
     @State private var editingEntry: DiaryEntry?
     @State private var selectedShow: Show?
     @State private var entryToDelete: DiaryEntry?
@@ -10,11 +10,19 @@ struct DiaryView: View {
         NavigationStack {
             Group {
                 if state.diary.isEmpty {
-                    ContentUnavailableView(
-                        "No diary entries",
-                        systemImage: "book",
-                        description: Text("Log a show to get started.")
-                    )
+                    VStack(spacing: 16) {
+                        Image(systemName: "book")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 60, height: 60)
+                            .foregroundColor(Color.border)
+                        Text("No diary entries")
+                            .font(.title2).fontWeight(.semibold)
+                        Text("Log a show to get started.")
+                            .font(.subheadline)
+                            .foregroundColor(Color.textMuted)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     List {
                         ForEach(state.diary) { entry in
@@ -55,10 +63,10 @@ struct DiaryView: View {
             }
         }
         .sheet(item: $editingEntry) { entry in
-            EditDiaryEntryView(entry: entry).environment(state)
+            EditDiaryEntryView(entry: entry).environmentObject(state)
         }
         .sheet(item: $selectedShow) { show in
-            ShowDetailView(show: show).environment(state)
+            ShowDetailView(show: show).environmentObject(state)
         }
     }
 }
@@ -106,7 +114,7 @@ struct DiaryRow: View {
 // MARK: - Edit form
 
 struct EditDiaryEntryView: View {
-    @Environment(AppState.self) var state
+    @EnvironmentObject var state: AppState
     @Environment(\.dismiss) var dismiss
 
     @State private var entry: DiaryEntry

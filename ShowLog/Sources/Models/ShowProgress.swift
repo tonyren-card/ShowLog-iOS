@@ -36,3 +36,4 @@ struct ShowProgress: Codable {
         watchedEpisodes["\(season)-\(episode)"] == true
     }
 }
+

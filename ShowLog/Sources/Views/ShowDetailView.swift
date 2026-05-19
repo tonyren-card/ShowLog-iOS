@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ShowDetailView: View {
-    @Environment(AppState.self) var state
+    @EnvironmentObject var state: AppState
     let show: Show
 
     @State private var loadedShow: Show?
@@ -11,6 +11,17 @@ struct ShowDetailView: View {
     @State private var loadingSeasons: Set<Int> = []
 
     private var detail: Show { loadedShow ?? show }
+
+    private var filteredSeasons: [ShowSeason] { detail.seasons.filter { $0.seasonNumber > 0 } }
+    private var totalSeriesEpisodes: Int { filteredSeasons.reduce(0) { $0 + $1.episodeCount } }
+    private var allSeriesWatched: Bool {
+        totalSeriesEpisodes > 0 && filteredSeasons.allSatisfy { season in
+            let watched = state.progress[detail.id]?.watchedEpisodes.filter { key, v in
+                v && key.hasPrefix("\(season.seasonNumber)-")
+            }.count ?? 0
+            return watched >= season.episodeCount
+        }
+    }
 
     var body: some View {
         ScrollView {
@@ -56,6 +67,7 @@ struct ShowDetailView: View {
                     }
 
                     // Action buttons
+                    ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
                         ActionButton(
                             title: state.isWatched(detail.id) ? "Watched" : "Mark Watched",
@@ -76,6 +88,20 @@ struct ShowDetailView: View {
                         ActionButton(title: "Log", icon: "book") {
                             showLogForm = true
                         }
+
+                        ActionButton(
+                            title: allSeriesWatched ? "Unmark All" : "All Watched",
+                            icon: allSeriesWatched ? "xmark.circle" : "checkmark.circle.fill",
+                            filled: allSeriesWatched
+                        ) {
+                            Task {
+                                await state.markAllEpisodesWatched(
+                                    show: detail,
+                                    seasons: filteredSeasons,
+                                    totalEpisodes: totalSeriesEpisodes)
+                            }
+                        }
+                    }
                     }
 
                     // Tab picker
@@ -196,7 +222,7 @@ struct ShowDetailView: View {
 
     private var seasonsTab: some View {
         LazyVStack(alignment: .leading, spacing: 10) {
-            ForEach(detail.seasons.filter { $0.seasonNumber > 0 }) { season in
+            ForEach(filteredSeasons) { season in
                 SeasonRow(
                     show: detail,
                     season: season,
@@ -237,7 +263,7 @@ struct ShowDetailView: View {
 // MARK: - Season row
 
 struct SeasonRow: View {
-    @Environment(AppState.self) var state
+    @EnvironmentObject var state: AppState
     let show: Show
     let season: ShowSeason
     let isExpanded: Bool
@@ -256,42 +282,47 @@ struct SeasonRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Season header
-            Button(action: onToggle) {
-                HStack {
-                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Color.textMuted)
-                        .frame(width: 16)
+            HStack(spacing: 0) {
+                Button(action: onToggle) {
+                    HStack {
+                        Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Color.textMuted)
+                            .frame(width: 16)
 
-                    Text(season.name)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color.textPrimary)
+                        Text(season.name)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Color.textPrimary)
 
-                    Spacer()
+                        Spacer()
 
-                    Text(seasonWatchedCount == season.episodeCount && season.episodeCount > 0
-                         ? "✓ Done"
-                         : "\(seasonWatchedCount)/\(season.episodeCount)")
-                        .font(.system(size: 12, weight: .medium, design: .monospaced))
-                        .foregroundStyle(seasonWatchedCount == season.episodeCount && season.episodeCount > 0
-                                         ? Color.showGreen : Color.textMuted)
-
-                    // Season checkbox
-                    Button {
-                        Task {
-                            let total = show.seasons.reduce(0) { $0 + $1.episodeCount }
-                            await state.markSeasonWatched(show: show, season: season, totalEpisodes: total)
-                        }
-                    } label: {
-                        Image(systemName: seasonWatchedCount == season.episodeCount && season.episodeCount > 0
-                              ? "checkmark.circle.fill" : "circle")
-                            .foregroundStyle(Color.showGreen)
+                        Text(seasonWatchedCount == season.episodeCount && season.episodeCount > 0
+                             ? "✓ Done"
+                             : "\(seasonWatchedCount)/\(season.episodeCount)")
+                            .font(.system(size: 12, weight: .medium, design: .monospaced))
+                            .foregroundStyle(seasonWatchedCount == season.episodeCount && season.episodeCount > 0
+                                             ? Color.showGreen : Color.textMuted)
                     }
-                    .buttonStyle(.plain)
+                    .padding(.vertical, 10)
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+
+                // Season checkbox
+                Button {
+                    Task {
+                        let total = show.seasons.reduce(0) { $0 + $1.episodeCount }
+                        await state.markSeasonWatched(show: show, season: season, totalEpisodes: total)
+                    }
+                } label: {
+                    Image(systemName: seasonWatchedCount == season.episodeCount && season.episodeCount > 0
+                          ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(Color.showGreen)
+                }
+                .buttonStyle(.plain)
                 .padding(.vertical, 10)
+                .padding(.leading, 8)
             }
-            .buttonStyle(.plain)
 
             if isLoading {
                 ProgressView().padding(.vertical, 8)
@@ -340,7 +371,7 @@ struct SeasonRow: View {
 // MARK: - Log form
 
 struct LogFormView: View {
-    @Environment(AppState.self) var state
+    @EnvironmentObject var state: AppState
     @Environment(\.dismiss) var dismiss
     let show: Show
 

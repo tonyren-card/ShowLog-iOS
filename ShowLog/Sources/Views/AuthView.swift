@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct AuthView: View {
-    @Environment(AppState.self) var state
+    @EnvironmentObject var state: AppState
     @Environment(\.dismiss) var dismiss
 
     @State private var isSignUp = false

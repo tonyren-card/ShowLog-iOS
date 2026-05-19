@@ -28,6 +28,9 @@ final class AppState: ObservableObject {
     @Published var selectedShow:  Show?
     @Published var showAuthSheet  = false
     @Published var errorMessage:  String?
+    @Published var selectedTab    = 0
+
+    var avatarUrl: String? { user?.userMetadata?.avatarUrl }
     @Published var isLoadingBrowse = false
 
     private var searchTask: Task<Void, Never>?
@@ -105,6 +108,13 @@ final class AppState: ObservableObject {
     func updateUsername(_ name: String) async throws {
         try await SupabaseService.shared.updateUsername(name)
         user?.userMetadata?.username = name
+    }
+
+    func uploadAvatar(_ imageData: Data) async throws {
+        guard let userId = user?.id else { return }
+        let url = try await SupabaseService.shared.uploadAvatar(imageData: imageData, userId: userId)
+        try await SupabaseService.shared.updateAvatarUrl(url)
+        user = await SupabaseService.shared.currentUser
     }
 
     // MARK: - Search
@@ -214,11 +224,17 @@ final class AppState: ObservableObject {
                            totalEpisodes: Int) async {
         guard isSignedIn else { showAuthSheet = true; return }
         var p = progress[show.id] ?? ShowProgress(showId: show.id, watchedEpisodes: [:], totalEpisodes: totalEpisodes)
-        let allWatched = season.episodes.allSatisfy {
-            p.isWatched(season: season.seasonNumber, episode: $0.episodeNumber)
+        var episodes = season.episodes
+        if episodes.isEmpty && season.episodeCount > 0 {
+            episodes = (try? await TMDBService.shared.season(showId: show.id, seasonNumber: season.seasonNumber)) ?? []
         }
-        for ep in season.episodes {
-            p.watchedEpisodes["\(season.seasonNumber)-\(ep.episodeNumber)"] = !allWatched
+        let episodeNumbers = !episodes.isEmpty
+            ? episodes.map { $0.episodeNumber }
+            : season.episodeCount > 0 ? Array(1...season.episodeCount) : []
+        guard !episodeNumbers.isEmpty else { return }
+        let allWatched = episodeNumbers.allSatisfy { p.isWatched(season: season.seasonNumber, episode: $0) }
+        for ep in episodeNumbers {
+            p.watchedEpisodes["\(season.seasonNumber)-\(ep)"] = !allWatched
         }
         p.totalEpisodes = totalEpisodes
         progress[show.id] = p
@@ -229,6 +245,38 @@ final class AppState: ObservableObject {
                 totalEpisodes: totalEpisodes)
         } catch {
             print("[AppState] markSeasonWatched save failed: \(error)")
+        }
+    }
+
+    func markAllEpisodesWatched(show: Show, seasons: [ShowSeason], totalEpisodes: Int) async {
+        guard isSignedIn else { showAuthSheet = true; return }
+        var p = progress[show.id] ?? ShowProgress(showId: show.id, watchedEpisodes: [:], totalEpisodes: totalEpisodes)
+        var allPairs: [(season: Int, episode: Int)] = []
+        for season in seasons {
+            var episodes = season.episodes
+            if episodes.isEmpty && season.episodeCount > 0 {
+                episodes = (try? await TMDBService.shared.season(showId: show.id, seasonNumber: season.seasonNumber)) ?? []
+            }
+            if !episodes.isEmpty {
+                for ep in episodes { allPairs.append((season.seasonNumber, ep.episodeNumber)) }
+            } else if season.episodeCount > 0 {
+                for ep in 1...season.episodeCount { allPairs.append((season.seasonNumber, ep)) }
+            }
+        }
+        guard !allPairs.isEmpty else { return }
+        let allWatched = allPairs.allSatisfy { p.isWatched(season: $0.season, episode: $0.episode) }
+        for pair in allPairs {
+            p.watchedEpisodes["\(pair.season)-\(pair.episode)"] = !allWatched
+        }
+        p.totalEpisodes = totalEpisodes
+        progress[show.id] = p
+        do {
+            try await SupabaseService.shared.updateProgress(
+                showId: show.id,
+                watchedEpisodes: p.watchedEpisodes,
+                totalEpisodes: totalEpisodes)
+        } catch {
+            print("[AppState] markAllEpisodesWatched save failed: \(error)")
         }
     }
 }

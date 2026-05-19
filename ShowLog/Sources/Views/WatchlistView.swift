@@ -1,30 +1,44 @@
 import SwiftUI
 
 struct WatchlistView: View {
-    @Environment(AppState.self) var state
+    @EnvironmentObject var state: AppState
     @State private var selectedShow: Show?
 
     var body: some View {
         NavigationStack {
             Group {
                 if !state.isSignedIn {
-                    ContentUnavailableView(
-                        "Sign in to see your watchlist",
-                        systemImage: "list.star",
-                        description: Text("Track shows you want to watch.")
-                    )
-                    .overlay(alignment: .bottom) {
+                    VStack(spacing: 16) {
+                        Image(systemName: "list.star")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 60, height: 60)
+                            .foregroundColor(Color.border)
+                        Text("Sign in to see your watchlist")
+                            .font(.title2).fontWeight(.semibold)
+                        Text("Track shows you want to watch.")
+                            .font(.subheadline)
+                            .foregroundColor(Color.textMuted)
                         Button("Sign In") { state.showAuthSheet = true }
                             .buttonStyle(.borderedProminent)
                             .tint(Color.showGreen)
-                            .padding(.bottom, 40)
+                            .padding(.top, 20)
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if state.watchlist.isEmpty {
-                    ContentUnavailableView(
-                        "Nothing in your list",
-                        systemImage: "list.star",
-                        description: Text("Add shows you want to watch.")
-                    )
+                    VStack(spacing: 16) {
+                        Image(systemName: "list.star")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 60, height: 60)
+                            .foregroundColor(Color.border)
+                        Text("Nothing in your list")
+                            .font(.title2).fontWeight(.semibold)
+                        Text("Add shows you want to watch.")
+                            .font(.subheadline)
+                            .foregroundColor(Color.textMuted)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     ScrollView {
                         LazyVGrid(
@@ -46,11 +60,11 @@ struct WatchlistView: View {
             .navigationTitle("Watchlist")
         }
         .sheet(item: $selectedShow) { show in
-            ShowDetailView(show: show).environment(state)
+            ShowDetailView(show: show).environmentObject(state)
         }
         .sheet(isPresented: Binding(get: { state.showAuthSheet },
                                     set: { state.showAuthSheet = $0 })) {
-            AuthView().environment(state)
+            AuthView().environmentObject(state)
         }
     }
 }

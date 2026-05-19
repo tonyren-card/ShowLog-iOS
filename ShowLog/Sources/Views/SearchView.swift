@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct SearchView: View {
-    @Environment(AppState.self) var state
+    @EnvironmentObject var state: AppState
     @State private var selectedShow: Show?
 
     var body: some View {
@@ -10,7 +10,19 @@ struct SearchView: View {
                 if state.isSearching {
                     ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if !state.searchQuery.isEmpty && state.searchResults.isEmpty {
-                    ContentUnavailableView.search(text: state.searchQuery)
+                    VStack(spacing: 16) {
+                        Image(systemName: "magnifyingglass")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 60, height: 60)
+                            .foregroundColor(Color.border)
+                        Text("No results for “\(state.searchQuery)”")
+                            .font(.title2).fontWeight(.semibold)
+                        Text("Try searching for a different show.")
+                            .font(.subheadline)
+                            .foregroundColor(Color.textMuted)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     ScrollView {
                         LazyVGrid(
@@ -37,7 +49,7 @@ struct SearchView: View {
             )
         }
         .sheet(item: $selectedShow) { show in
-            ShowDetailView(show: show).environment(state)
+            ShowDetailView(show: show).environmentObject(state)
         }
     }
 }

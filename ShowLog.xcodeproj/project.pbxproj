@@ -51,6 +51,8 @@
 		9C0F2AC8E8DBC54EB18DD18B /* ShowDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShowDetailView.swift; sourceTree = "<group>"; };
 		9FC304D01FF563997E50EF1E /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		B0399DCAA84F15E216FEBAAB /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B067EB282FA0255A000A2D41 /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
+		B0BD8E942FB791E70068CDB2 /* showlog-ios-roadmap.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "showlog-ios-roadmap.md"; sourceTree = "<group>"; };
 		CA97F463AA5F06689802695B /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		D90F0FB42B097172F2741D04 /* WatchStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchStatus.swift; sourceTree = "<group>"; };
 		F6FBE172BAD1BAF177FF41BF /* SectionHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SectionHeader.swift; sourceTree = "<group>"; };
@@ -79,6 +81,8 @@
 		12C21DC2B563E5869DF2AB3C = {
 			isa = PBXGroup;
 			children = (
+				B0BD8E952FB791E70068CDB2 /* references */,
+				B067EB282FA0255A000A2D41 /* Secrets.xcconfig */,
 				9FBA938A32ED9919F2D609B4 /* ShowLog */,
 				7CED5F8AC662C34D9E5C57CC /* Sources */,
 				02614E6AD14D47AAE13083C6 /* Products */,
@@ -142,6 +146,14 @@
 				B0399DCAA84F15E216FEBAAB /* Assets.xcassets */,
 			);
 			path = ShowLog;
+			sourceTree = "<group>";
+		};
+		B0BD8E952FB791E70068CDB2 /* references */ = {
+			isa = PBXGroup;
+			children = (
+				B0BD8E942FB791E70068CDB2 /* showlog-ios-roadmap.md */,
+			);
+			path = references;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -238,6 +250,7 @@
 /* Begin XCBuildConfiguration section */
 		5723DC4C3FFD3B0C6D3FEFBE /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = B067EB282FA0255A000A2D41 /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -295,18 +308,22 @@
 		};
 		A616C801B64EAF9F27A48E62 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = B067EB282FA0255A000A2D41 /* Secrets.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = U2U2C95MX8;
 				INFOPLIST_FILE = ShowLog/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				INFOPLIST_KEY_CFBundleDisplayName = ShowLog;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.tonyren.showlog;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -315,18 +332,22 @@
 		};
 		AC4680CA7F845688FCFC2030 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = B067EB282FA0255A000A2D41 /* Secrets.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = U2U2C95MX8;
 				INFOPLIST_FILE = ShowLog/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				INFOPLIST_KEY_CFBundleDisplayName = ShowLog;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.tonyren.showlog;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -335,6 +356,7 @@
 		};
 		F9459DCDAD543687988288AB /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = B067EB282FA0255A000A2D41 /* Secrets.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
