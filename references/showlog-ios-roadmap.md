@@ -1,6 +1,6 @@
 # ShowLog iOS — Roadmap & Feature Tracker
 
-**Last updated:** May 15, 2026 | Part of [showlogd.netlify.app](https://showlogd.netlify.app) | Stack: SwiftUI + iOS 16+
+**Last updated:** May 20, 2026 | Part of [showlogd.netlify.app](https://showlogd.netlify.app) | Stack: SwiftUI + iOS 16+
 
 ---
 
@@ -26,6 +26,12 @@
 
 ## 🔮 Future
 
+### Known Bugs
+
+| ID | Bug | Severity | Details |
+|----|-----|----------|---------|
+| BUG-07 | **Diary entry requires a mandatory rating** | Medium | The "Save" button in the log form (`ShowDetailView.swift:419`) and the diary edit form (`DiaryView.swift:162`) are both `.disabled(rating == 0 || loading)`. Users cannot log a show or save an edit without giving a star rating — no way to backfill a watch you forgot to rate. Rating should be optional; the Save button should be enabled as long as the form is otherwise valid. Same bug exists in the web app (BUG-07). |
+
 ### Feature
 
 | ID | Item | Priority | Details |
@@ -44,6 +50,12 @@
 | FEA-22 | **Adaptive App Icon** | Low | Support iOS 18 home screen appearance variants for the app icon. Three icon variants provided in the asset catalog: **Dark** — same artwork on a black background; **Tinted (clear)** — monochrome version of the icon artwork, rendered by iOS with a glass-like translucent tint; **Tinted (color)** — same monochrome artwork, allowing iOS to apply the user's chosen home screen accent color automatically. All three variants are registered under the primary `AppIcon` asset catalog entry alongside the existing default (light) icon, so iOS picks the correct variant without any in-app code. |
 | FEA-23 | **Social Sign-In** | Medium | Add one-tap sign-in via Google, Apple, and Facebook as alternatives to email + password. Powered by Supabase OAuth providers. Provider buttons appear on the `AuthView` above the email form with a divider. Apple Sign-In uses `AuthenticationServices` (`ASAuthorizationAppleIDButton`) natively; Google and Facebook use their respective iOS SDKs or a Supabase OAuth web flow via `ASWebAuthenticationSession`. Apple Sign-In is mandatory per App Store Guidelines when other third-party sign-in options are offered. |
 | FEA-24 | **Per-Episode Ratings & Reviews** | Medium | Rate (0.5–5 stars) and write an optional review for each individual episode, inline in the season accordion. Tapping the star icon on an episode row opens a `sheet` with a star picker and a text field for notes; rated episodes show the star count in the row. Season headers display the average rating across rated episodes in that season. Data stored in the shared `episode_ratings` Supabase table (`user_id`, `show_id`, `season_number`, `episode_number`, `rating`, `review`, `rated_at`). Requires auth; prompts `AuthView` if signed out. |
+| FEA-25 | **Similar Shows** | Medium | "Similar" tab in `ShowDetailView`, powered by TMDB's `GET /tv/{id}/similar` endpoint. New `fetchSimilar(showId:)` method in `TMDBService` returns up to 12 similar shows. Results displayed as a `LazyVGrid` poster grid matching the existing search results layout. Tapping a card opens a new `ShowDetailView` sheet. Natural discovery path after finishing a show. |
+| FEA-26 | **Diary grouped by month/year** | Medium | Group diary entries using SwiftUI `List` with `Section(header:)` keyed by the `watched_at` month+year (e.g. "May 2026", "April 2026"). Each section header shows the month name and entry count. Matches how Letterboxd structures its diary. Grouping computed once from the sorted `diary` array in `DiaryView`; no Supabase changes needed. |
+| FEA-27 | **Watchlist sort & filter** | Low | Add a toolbar `Menu` button to `WatchlistView` with sort options: Date Added (default), Title A–Z, TMDB Rating. Optionally, a genre filter via `Picker` or multi-select sheet. Sort selection stored in `@AppStorage`. Currently shows are just displayed in Supabase query order. |
+| FEA-28 | **Currently Airing section** | Low | Add a "Currently Airing" horizontal scroll row to `HomeView` using TMDB's `GET /tv/on_the_air` endpoint. New `fetchOnTheAir()` in `TMDBService`. Sits above or below Trending. Most relevant for users tracking active-season shows week-to-week. |
+| FEA-29 | **"See All" for home category rows** | Low | Each Home category row (Trending, Popular, Top Rated) currently shows 6 cards. Add a "See All →" `NavigationLink` beside each section title that pushes a full grid view (`CategoryGridView`) with all 20 results from the TMDB page. Pairs with FEA-28 if that row is added. |
+| FEA-30 | **Forgot password flow** | Medium | The `AuthView` has no "Forgot password?" option. Add a "Reset Password" button below the sign-in form that calls `SupabaseService.resetPassword(email:)` (POST to `/auth/v1/recover`). On success, show a confirmation message. The reset email deep-links back to the app; handle the `#access_token` fragment via `onOpenURL` in `ShowLogApp` to open a "Set New Password" sheet with `SupabaseService.updatePassword(newPassword:)`. |
 
 ### UI
 
@@ -51,6 +63,8 @@
 |----|------|----------|---------|
 | UI-01 | **Public Profile** | Medium | Public profile showing watch stats, recent diary entries, top shows, and ratings distribution. Private by default. |
 | UI-02 | **Splash Screen** | Low | A branded launch screen displaying the ShowLog logo and name before the app finishes loading. Gives users a moment of branding recognition on cold launch. Implemented via Xcode's Launch Screen storyboard or `LaunchScreen` asset catalog entry — no code required. |
+| UI-04 | **Your rating badge on watchlist cards** | Low | In the `WatchlistView` grid (and Home "Continue Watching" row), overlay a small green star badge (e.g. "★ 4") on `ShowCard` when the user has a diary entry rating for that show. Positioned bottom-left, styled like the TMDB score chip. `AppState` already has the full `diary` array; look up the most recent rating by `show_id` and pass it as an optional parameter to `ShowCard`. No Supabase changes needed. |
+| UI-05 | **Watchlist swipe-to-remove** | Low | Add a `.swipeActions(edge: .trailing)` destructive "Remove" action to each show card in `WatchlistView`. This mirrors the existing diary swipe-to-delete pattern and lets users remove a show from their watchlist without tapping into the full detail sheet. Calls the existing `toggleWatchlist(show:)` method in `AppState`. |
 
 ---
 
