@@ -137,7 +137,7 @@ struct EditDiaryEntryView: View {
                         .tint(Color.showGreen)
                 }
 
-                Section("Rating") {
+                Section("Rating (optional)") {
                     StarRatingPicker(rating: $entry.rating).padding(.vertical, 4)
                 }
 
@@ -159,7 +159,7 @@ struct EditDiaryEntryView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { Task { await save() } }
-                        .disabled(entry.rating == 0 || loading)
+                        .disabled(loading)
                         .tint(Color.showGreen)
                 }
             }

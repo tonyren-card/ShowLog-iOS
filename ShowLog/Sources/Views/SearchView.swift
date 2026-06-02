@@ -23,6 +23,42 @@ struct SearchView: View {
                             .foregroundColor(Color.textMuted)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if state.searchQuery.isEmpty && !state.recentSearches.isEmpty {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 16) {
+                            HStack {
+                                Text("Recent")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(Color.textMuted)
+                                    .textCase(.uppercase)
+                                    .tracking(1.5)
+                                Spacer()
+                                Button("Clear") { state.clearRecentSearches() }
+                                    .font(.caption)
+                                    .foregroundColor(Color.textMuted)
+                            }
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(state.recentSearches, id: \.self) { query in
+                                        Button(query) {
+                                            state.searchQuery = query
+                                            state.search(query)
+                                        }
+                                        .font(.subheadline)
+                                        .foregroundColor(Color.textPrimary)
+                                        .padding(.horizontal, 14)
+                                        .padding(.vertical, 7)
+                                        .background(Color.surface)
+                                        .clipShape(Capsule())
+                                        .overlay(Capsule().stroke(Color.border, lineWidth: 1))
+                                    }
+                                }
+                            }
+                        }
+                        .padding(20)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 } else {
                     ScrollView {
                         LazyVGrid(

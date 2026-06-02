@@ -1,26 +1,19 @@
 # ShowLog iOS — Roadmap & Feature Tracker
 
-**Last updated:** May 20, 2026 | Part of [showlogd.netlify.app](https://showlogd.netlify.app) | Stack: SwiftUI + iOS 16+
+**Last updated:** Jun 2, 2026 | Part of [showlogd.netlify.app](https://showlogd.netlify.app) | Stack: SwiftUI + iOS 16+
 
 ---
 
-## Latest — v1.1.2
-<sub>Published 2026-05-15</sub>
+## Latest — v1.1.3
+<sub>Published 2026-06-02</sub>
 
-**Profile pictures, episode tracking improvements, and iOS 16 fixes.**
-
-### Features
-- **FEA-19: Profile Picture** — Users can tap their avatar on the Profile tab to open the system photo picker (`PhotosUI`). The selected image is compressed to JPEG and uploaded to Supabase Storage (`avatars/{user_id}.jpg`). The public URL is saved to Supabase user metadata (`avatar_url`). The avatar is displayed in the Profile tab header and the Home tab toolbar. Falls back to the initial-letter badge when no avatar is set. Requires the `avatars` storage bucket (migration: `20260515_avatars_storage.sql`).
-- **"All Watched" button** — New button in Show Detail that marks or unmarks every episode across all seasons in one tap. Toggles between "All Watched" and "Unmark All" based on current progress.
-
-### Improvements
-- **Profile icon navigation** — The profile avatar badge in the top-right corner of the Home tab is now tappable and navigates directly to the Profile tab. Previously it was a non-interactive display. `TabView` selection is bound to `AppState.selectedTab` so any part of the app can switch tabs programmatically.
+**Optional diary rating and recent searches.**
 
 ### Fixes
-- **Season row accidental toggles** — Tapping to expand a season was also triggering the watched toggle. Expand/collapse and the season checkbox are now separate tap targets.
-- **Bulk-marking un-expanded seasons** — Marking a season as watched before expanding it silently did nothing. Now works regardless of whether the season's episodes have been loaded.
-- **Recently Watched ordering** — The order of Recently Watched rows was undefined after the `created_at` fix in v1.1.0. A new `marked_at` column on `watched_shows` (migration: `20260515_watched_shows_marked_at.sql`) ensures the list is always sorted by when the show was marked watched, newest first.
-- **Empty states on iOS 16** — Watchlist, Search, and Diary showed blank screens instead of their empty-state messages on iOS 16 devices due to use of `ContentUnavailableView` (iOS 17+). Replaced with custom views compatible with iOS 16.
+- **BUG-07: Optional diary rating** — Removed the mandatory rating gate from the log form (`ShowDetailView`) and the diary edit form (`DiaryView`). The Save button is now only disabled while the save is in progress, not when no star rating is set. Entries can be saved with 0 stars. Both forms now show a "Rating (optional)" section header so users know the field isn't required.
+
+### Features
+- **FEA-17: Recent Searches** — The Search tab now shows a "Recent" section when the search field is empty. Past search terms are stored in `UserDefaults` (max 10, newest-first) and displayed as horizontal pill chips. Tapping a chip repopulates the search field and triggers the search immediately. A "Clear" button removes all history. No account required.
 
 ---
 
@@ -30,7 +23,6 @@
 
 | ID | Bug | Severity | Details |
 |----|-----|----------|---------|
-| BUG-07 | **Diary entry requires a mandatory rating** | Medium | The "Save" button in the log form (`ShowDetailView.swift:419`) and the diary edit form (`DiaryView.swift:162`) are both `.disabled(rating == 0 || loading)`. Users cannot log a show or save an edit without giving a star rating — no way to backfill a watch you forgot to rate. Rating should be optional; the Save button should be enabled as long as the form is otherwise valid. Same bug exists in the web app (BUG-07). |
 
 ### Feature
 
@@ -43,7 +35,6 @@
 | FEA-12 | **Show Lists** | Medium | Create and share curated lists (e.g. "Best HBO Shows", "Comfort Watches"). Ordered, titled, with description. Public lists are discoverable. |
 | FEA-13 | **Streaming Availability** | Medium | Show which platforms a show is on via TMDB `watch/providers`. Platform logos on show cards. Filter watchlist by platform. |
 | FEA-14 | **Reviews & Notes** | Low | Longer-form reviews per show beyond a star rating. Public or private. |
-| FEA-17 | **Recent Searches** | Low | In the Search tab, show a list of the user's most recent search keywords when the search field is empty or first focused. Tapping a keyword repopulates the field and triggers the search immediately. Keywords stored in `UserDefaults` (max 10 entries, newest first). A "Clear" button removes all entries. No account required. |
 | FEA-18 | **Settings Menu** | Medium | Dedicated Settings screen pushed from the Profile tab (gear icon or "Settings" row). Organizes account actions and app preferences in one place. **Account** section: Sign Out and Delete Account (moved from the main Profile screen). **Preferences** section: placeholder for future app-level settings (e.g. default rating scale, diary sort order). Keeps the Profile screen focused on user stats and identity. |
 | FEA-20 | **Localization** | Medium | Translate the app UI into multiple languages, automatically matching the device language set in iOS Settings. All static strings extracted into `Localizable.strings` / `Localizable.xcstrings`. Locale-aware date and number formatting via `DateFormatter` and `NumberFormatter`. Falls back to English for unsupported locales. |
 | FEA-21 | **Light Mode & System Appearance** | Low | Add a light mode theme and a per-user appearance preference (Dark / Light / System). "System" follows the iOS appearance setting via `.preferredColorScheme`. Color tokens defined as `Color` assets with light/dark variants in the asset catalog. Preference stored in `UserDefaults` and applied at the root `App` level. |
@@ -72,6 +63,8 @@
 
 | ID | Item | Type | Completed |
 |----|------|------|-----------|
+| FEA-17 | **Recent Searches** — `UserDefaults` pill chips shown in the Search tab when the field is empty (max 10, newest-first). Tapping a chip re-runs the search. Clear button removes all history. | Feature → Done | Jun 2 |
+| BUG-07 | **Optional diary rating** — Removed `.disabled(rating == 0 \|\| loading)` gate from log form and diary edit form. Save is now only blocked while saving. Both forms show "Rating (optional)" section header. | Bug → Fixed | Jun 2 |
 | FEA-19 | **Profile Picture** — Tap avatar on Profile tab to pick a photo from the system library. Image compressed to JPEG and uploaded to Supabase Storage (`avatars/{user_id}.jpg`). Public URL saved to user metadata. Displayed on Profile tab and Home toolbar; falls back to initial-letter badge. | Feature → Done | May 15 |
 | INF-05 | **Account Deletion** — Profile tab delete flow with typed `DELETE` confirmation. Calls shared `/api/delete-account` Netlify Function to wipe all Supabase data and auth user. App Store compliance. | Infra → Done | May 11 |
 | BUG-05 | **Sign-up Decoding Crash** — `signUp` now handles both response shapes: full `AuthResponse` (email confirmation disabled) and bare user object (confirmation required). Returns `nil` for the latter so `AuthView` shows the confirmation message. | Bug → Fixed | May 11 |
@@ -98,6 +91,19 @@
 ## 🚀 Version History
 
 ### v1.1 — Apr–May 2026
+
+---
+
+#### v1.1.3
+<sub>Published 2026-06-02</sub>
+
+**Optional diary rating and recent searches.**
+
+##### Fixes
+- **BUG-07: Optional diary rating** — Removed `.disabled(rating == 0 || loading)` from the log form toolbar (`ShowDetailView`) and the diary edit toolbar (`DiaryView`). The Save button is now only disabled while the network call is in flight. Entries can be logged or edited with no star rating set. Both forms now show "Rating (optional)" as the section header.
+
+##### Features
+- **FEA-17: Recent Searches** — The Search tab shows a "Recent" section with horizontal pill chips when the search field is empty. Past queries stored in `UserDefaults` (`showlog_recent_searches`, max 10, newest-first). Tapping a chip sets `searchQuery` and calls `search()` immediately. "Clear" button calls `clearRecentSearches()` and removes the key from `UserDefaults`.
 
 ---
 

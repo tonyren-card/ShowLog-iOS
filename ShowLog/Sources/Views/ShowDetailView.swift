@@ -390,7 +390,7 @@ struct LogFormView: View {
                         .tint(Color.showGreen)
                 }
 
-                Section("Rating") {
+                Section("Rating (optional)") {
                     StarRatingPicker(rating: $rating)
                         .padding(.vertical, 4)
                 }
@@ -416,7 +416,7 @@ struct LogFormView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { Task { await save() } }
-                        .disabled(rating == 0 || loading)
+                        .disabled(loading)
                         .tint(Color.showGreen)
                 }
             }

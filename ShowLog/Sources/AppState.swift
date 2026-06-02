@@ -13,9 +13,10 @@ final class AppState: ObservableObject {
     @Published var topRated:  [Show] = []
 
     // MARK: - Search
-    @Published var searchQuery   = ""
-    @Published var searchResults: [Show] = []
-    @Published var isSearching   = false
+    @Published var searchQuery      = ""
+    @Published var searchResults:   [Show] = []
+    @Published var isSearching      = false
+    @Published var recentSearches:  [String] = UserDefaults.standard.stringArray(forKey: "showlog_recent_searches") ?? []
 
     // MARK: - User data
     @Published var watchlist:     [Show] = []
@@ -128,7 +129,18 @@ final class AppState: ObservableObject {
             isSearching = true
             searchResults = (try? await TMDBService.shared.search(query: query)) ?? []
             isSearching = false
+            let trimmed = query.trimmingCharacters(in: .whitespaces)
+            guard !trimmed.isEmpty else { return }
+            var updated = [trimmed] + recentSearches.filter { $0 != trimmed }
+            if updated.count > 10 { updated = Array(updated.prefix(10)) }
+            recentSearches = updated
+            UserDefaults.standard.set(updated, forKey: "showlog_recent_searches")
         }
+    }
+
+    func clearRecentSearches() {
+        recentSearches = []
+        UserDefaults.standard.removeObject(forKey: "showlog_recent_searches")
     }
 
     // MARK: - Show detail
