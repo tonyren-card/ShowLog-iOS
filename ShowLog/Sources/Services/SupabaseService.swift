@@ -258,8 +258,12 @@ actor SupabaseService {
     // MARK: Diary
 
     func loadDiary() async throws -> [DiaryEntry] {
-        try await get(path: "/rest/v1/diary_entries",
-                      query: ["select": "*", "order": "watched_at.desc"])
+        guard let uid = currentUser?.id else { return [] }
+        // Must filter explicitly: the FEA-11 "public profiles" SELECT policy is permissive
+        // and ORs together with the owner-only policy, so an unfiltered query would also
+        // return every public profile's diary rows, not just the signed-in user's own.
+        return try await get(path: "/rest/v1/diary_entries",
+                            query: ["user_id": "eq.\(uid)", "select": "*", "order": "watched_at.desc"])
     }
 
     func addDiaryEntry(showId: Int, show: Show, watchedAt: String,
@@ -278,17 +282,20 @@ actor SupabaseService {
     }
 
     func updateDiaryEntry(_ entry: DiaryEntry) async throws {
+        guard let uid = currentUser?.id else { return }
         let body: [String: AnyEncodable] = [
             "watched_at": AnyEncodable(entry.watchedAt),
             "notes":      AnyEncodable(entry.notes),
             "rating":     AnyEncodable(Double(entry.rating) / 2.0)  // store on 0.5–5 scale (web format)
         ]
         try await patch(path: "/rest/v1/diary_entries",
-                        query: ["id": "eq.\(entry.id)"], body: body)
+                        query: ["id": "eq.\(entry.id)", "user_id": "eq.\(uid)"], body: body)
     }
 
     func deleteDiaryEntry(id: String) async throws {
-        try await delete(path: "/rest/v1/diary_entries", query: ["id": "eq.\(id)"])
+        guard let uid = currentUser?.id else { return }
+        try await delete(path: "/rest/v1/diary_entries",
+                         query: ["id": "eq.\(id)", "user_id": "eq.\(uid)"])
     }
 
     // MARK: Episode Progress
@@ -313,6 +320,96 @@ actor SupabaseService {
         ]
         try await upsert(path: "/rest/v1/show_progress", body: body,
                          onConflict: "user_id,show_id")
+    }
+
+    // MARK: Social (profiles + follows)
+
+    private struct FollowingRow: Codable {
+        let followingId: String
+        enum CodingKeys: String, CodingKey { case followingId = "following_id" }
+    }
+
+    func loadFollowingIds() async throws -> [String] {
+        guard let uid = currentUser?.id else { return [] }
+        let rows: [FollowingRow] = try await get(
+            path: "/rest/v1/follows",
+            query: ["follower_id": "eq.\(uid)", "select": "following_id"])
+        return rows.map(\.followingId)
+    }
+
+    func loadProfile(id: String) async throws -> Profile? {
+        let rows: [Profile] = try await get(
+            path: "/rest/v1/profiles",
+            query: ["id": "eq.\(id)", "select": "id,username,avatar_url,is_public"])
+        return rows.first
+    }
+
+    func loadProfiles(ids: [String]) async throws -> [Profile] {
+        guard !ids.isEmpty else { return [] }
+        // Via a SECURITY DEFINER function so usernameless-but-public profiles can fall
+        // back to an email_prefix for display — the same visibility rule as the table's
+        // own RLS (is_public or self) is replicated inside the function itself.
+        let body: [String: AnyEncodable] = ["ids": AnyEncodable(ids)]
+        return try await post(path: "/rest/v1/rpc/get_profiles", body: body)
+    }
+
+    func loadFeed(followingIds: [String]) async throws -> [DiaryEntry] {
+        guard !followingIds.isEmpty else { return [] }
+        return try await get(
+            path: "/rest/v1/diary_entries",
+            query: ["user_id": "in.(\(followingIds.joined(separator: ",")))",
+                    "select": "*", "order": "watched_at.desc", "limit": "100"])
+    }
+
+    func loadCommunityReviews(showId: Int) async throws -> [DiaryEntry] {
+        try await get(
+            path: "/rest/v1/diary_entries",
+            query: ["show_id": "eq.\(showId)", "select": "*",
+                    "order": "watched_at.desc", "limit": "50"])
+    }
+
+    func searchProfiles(query: String, excluding: String) async throws -> [Profile] {
+        // Matches username OR email server-side via a SECURITY DEFINER function — the
+        // email value itself is never part of the function's return signature, so it
+        // never crosses back to the client regardless of what's requested here.
+        struct SearchResult: Codable {
+            let id: String
+            let username: String?
+            let avatarUrl: String?
+            let emailPrefix: String?
+            enum CodingKeys: String, CodingKey {
+                case id, username
+                case avatarUrl = "avatar_url"
+                case emailPrefix = "email_prefix"
+            }
+        }
+        let body: [String: AnyEncodable] = [
+            "search_query": AnyEncodable(query),
+            "excluding_id": AnyEncodable(excluding)
+        ]
+        let results: [SearchResult] = try await post(path: "/rest/v1/rpc/search_profiles", body: body)
+        return results.map { Profile(id: $0.id, username: $0.username, avatarUrl: $0.avatarUrl, isPublic: true, emailPrefix: $0.emailPrefix) }
+    }
+
+    func follow(id: String) async throws {
+        guard let uid = currentUser?.id else { return }
+        let body: [String: AnyEncodable] = [
+            "follower_id": AnyEncodable(uid),
+            "following_id": AnyEncodable(id)
+        ]
+        try await post(path: "/rest/v1/follows", body: body)
+    }
+
+    func unfollow(id: String) async throws {
+        guard let uid = currentUser?.id else { return }
+        try await delete(path: "/rest/v1/follows",
+                         query: ["follower_id": "eq.\(uid)", "following_id": "eq.\(id)"])
+    }
+
+    func updateIsPublic(_ value: Bool) async throws {
+        guard let uid = currentUser?.id else { return }
+        let body: [String: AnyEncodable] = ["is_public": AnyEncodable(value)]
+        try await patch(path: "/rest/v1/profiles", query: ["id": "eq.\(uid)"], body: body)
     }
 
     // MARK: - HTTP helpers

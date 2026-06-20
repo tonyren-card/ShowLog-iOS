@@ -1,19 +1,21 @@
 # ShowLog iOS — Roadmap & Feature Tracker
 
-**Last updated:** Jun 2, 2026 | Part of [showlogd.netlify.app](https://showlogd.netlify.app) | Stack: SwiftUI + iOS 16+
+**Last updated:** Jun 20, 2026 | Part of [showlogd.netlify.app](https://showlogd.netlify.app) | Stack: SwiftUI + iOS 16+
 
 ---
 
-## Latest — v1.1.3
-<sub>Published 2026-06-02</sub>
+## Latest — v1.2.0
+<sub>Published 2026-06-19</sub>
 
-**Optional diary rating and recent searches.**
+**Social feed — follow other users, read public reviews, and see friend activity.**
 
 ### Fixes
-- **BUG-07: Optional diary rating** — Removed the mandatory rating gate from the log form (`ShowDetailView`) and the diary edit form (`DiaryView`). The Save button is now only disabled while the save is in progress, not when no star rating is set. Entries can be saved with 0 stars. Both forms now show a "Rating (optional)" section header so users know the field isn't required.
+- **BUG-08: Usernameless profiles were unidentifiable** — Anyone without a username appeared as "Private account" in Following chips, or blank in the Feed and Reviews tab — indistinguishable from someone who'd actually gone private. `Profile` gained an `emailPrefix` field (and a `displayName` computed property) populated by a new `get_profiles` SQL function for public-but-usernameless profiles; the full email is never returned. A genuinely private profile (no row returned at all) still correctly falls back to "Private account".
 
 ### Features
-- **FEA-17: Recent Searches** — The Search tab now shows a "Recent" section when the search field is empty. Past search terms are stored in `UserDefaults` (max 10, newest-first) and displayed as horizontal pill chips. Tapping a chip repopulates the search field and triggers the search immediately. A "Clear" button removes all history. No account required.
+- **FEA-11: Social / Friends Feed** — New `Profile` model + `SupabaseService` methods backed by the `profiles`/`follows` tables (shared with the web app — already live, no new schema needed). A new Feed tab (`FeedView`) lets you search for people by username and follow/unfollow them, and shows a reverse-chronological activity stream (`FeedRow`) of diary entries from people you follow. `ShowDetailView` gets a fourth "Reviews" tab listing every public review for that show — visible to anyone, signed in or not — with a "Following" pill and inline Follow button per reviewer. `HomeView` gets a new "Popular with Friends" row (`AppState.popularWithFriends`, computed from the feed). `ProfileView` gets a native `Toggle` for Public/Private (going private immediately hides your diary from everyone, including existing followers) and a "Following" stat cell. New shared `AvatarView` component for rendering other users' avatars. Adding a 6th tab pushed the tab bar into iOS's automatic "More" overflow, so the standalone Search tab was removed and folded into Home instead — `HomeView` now uses `.searchable()` directly (with the existing recent-searches chips shown above the browse rows), keeping the tab bar at 5 items: Home, Feed, Watchlist, Diary, Profile.
+- **FEA-31: Search by email** — `FeedView`'s "Find People" search now also matches by email address, not just username, via the same `search_profiles` SQL function used by the web app. The email itself is never part of the function's return signature, so it's never decoded into the app.
+- **FEA-32: Social Feed onboarding** — New `SocialFeedOnboardingView` announces the Social Feed to existing users the first time they open the app after updating: Find People, Feed, Reviews, and the Public/Private toggle, with an "Explore the Feed" button that jumps straight to the Feed tab. Shown exactly once, and only to people who already had the app installed — never to a fresh install, since there's nothing to announce relative to an experience they never had. Tracked via two `UserDefaults` flags (`showlog_has_launched_before`, `showlog_has_seen_social_feed_onboarding`) rather than the app's marketing version number, since Version/Build are edited by hand in Xcode and aren't a reliable signal.
 
 ---
 
@@ -31,7 +33,6 @@
 | FEA-08 | **Year in Review / Stats Page** | High | Annual wrapped-style stats: total shows watched, total episodes, top genres, most-watched network, average rating, watching streaks, first and last log of the year. Shareable as an image card. |
 | FEA-09 | **AI Recommendations** | Medium | Use Claude to recommend shows based on the user's diary and ratings. Personalized picks with explanations, powered by a backend endpoint that pulls the user's Supabase data as context. |
 | FEA-10 | **Import from Trakt / IMDb** | Medium | Let users migrate existing watch history from Trakt (JSON export) or IMDb (CSV export). Preview with New/Existing badges before committing. |
-| FEA-11 | **Social / Friends Feed** | Medium | Follow other users and see their recent diary entries in a feed. Friends' ratings on show detail pages. "Popular with friends" section on Home. |
 | FEA-12 | **Show Lists** | Medium | Create and share curated lists (e.g. "Best HBO Shows", "Comfort Watches"). Ordered, titled, with description. Public lists are discoverable. |
 | FEA-13 | **Streaming Availability** | Medium | Show which platforms a show is on via TMDB `watch/providers`. Platform logos on show cards. Filter watchlist by platform. |
 | FEA-14 | **Reviews & Notes** | Low | Longer-form reviews per show beyond a star rating. Public or private. |
@@ -63,6 +64,10 @@
 
 | ID | Item | Type | Completed |
 |----|------|------|-----------|
+| FEA-32 | **Social Feed onboarding** — One-time `SocialFeedOnboardingView` announcing Find People, Feed, Reviews, and the Public/Private toggle to existing users after updating. Never shown on a fresh install; tracked via `UserDefaults` flags, not the app version. | Feature → Done | Jun 20 |
+| FEA-11 | **Social / Friends Feed** — Public-by-default profiles with reviews readable by anyone via a new Reviews tab on `ShowDetailView`; a Feed tab to find/follow people and see their activity; a "Popular with Friends" row on Home; a Public/Private toggle + Following count on Profile. Backed by the shared `profiles` + `follows` Supabase tables (already live from the web app). | Feature → Done | Jun 19 |
+| FEA-31 | **Search by email** — `FeedView`'s "Find People" search matches by email as well as username, via a `search_profiles` SQL function that never returns the email itself. | Feature → Done | Jun 19 |
+| BUG-08 | **Usernameless profiles were unidentifiable** — Following chips, Feed, and Reviews now fall back to the part of a profile's email before "@" when no username is set, via a `get_profiles` SQL function; full email never returned. Genuinely private profiles still show "Private account". | Bug → Fixed | Jun 19 |
 | FEA-17 | **Recent Searches** — `UserDefaults` pill chips shown in the Search tab when the field is empty (max 10, newest-first). Tapping a chip re-runs the search. Clear button removes all history. | Feature → Done | Jun 2 |
 | BUG-07 | **Optional diary rating** — Removed `.disabled(rating == 0 \|\| loading)` gate from log form and diary edit form. Save is now only blocked while saving. Both forms show "Rating (optional)" section header. | Bug → Fixed | Jun 2 |
 | FEA-19 | **Profile Picture** — Tap avatar on Profile tab to pick a photo from the system library. Image compressed to JPEG and uploaded to Supabase Storage (`avatars/{user_id}.jpg`). Public URL saved to user metadata. Displayed on Profile tab and Home toolbar; falls back to initial-letter badge. | Feature → Done | May 15 |
@@ -89,6 +94,25 @@
 ---
 
 ## 🚀 Version History
+
+### v1.2 — Jun 2026
+
+---
+
+#### v1.2.0
+<sub>Published 2026-06-19</sub>
+
+**Social feed.**
+
+##### Fixes
+- **BUG-08: Usernameless profiles were unidentifiable** — Anyone without a username appeared as "Private account" in Following chips, or blank in the Feed and Reviews tab — indistinguishable from someone who'd actually gone private. `Profile` gained an `emailPrefix` field (and a `displayName` computed property) populated by a new `get_profiles` SQL function for public-but-usernameless profiles; the full email is never returned. A genuinely private profile (no row returned at all) still correctly falls back to "Private account".
+
+##### Features
+- **FEA-11: Social / Friends Feed** — New `Profile` model + `SupabaseService` methods backed by the `profiles`/`follows` tables (shared with the web app — already live, no new schema needed). A new Feed tab (`FeedView`) lets you search for people by username and follow/unfollow them, and shows a reverse-chronological activity stream (`FeedRow`) of diary entries from people you follow. `ShowDetailView` gets a fourth "Reviews" tab listing every public review for that show — visible to anyone, signed in or not — with a "Following" pill and inline Follow button per reviewer. `HomeView` gets a new "Popular with Friends" row (`AppState.popularWithFriends`, computed from the feed). `ProfileView` gets a native `Toggle` for Public/Private (going private immediately hides your diary from everyone, including existing followers) and a "Following" stat cell. New shared `AvatarView` component for rendering other users' avatars. Adding a 6th tab pushed the tab bar into iOS's automatic "More" overflow, so the standalone Search tab was removed and folded into Home instead — `HomeView` now uses `.searchable()` directly (with the existing recent-searches chips shown above the browse rows), keeping the tab bar at 5 items: Home, Feed, Watchlist, Diary, Profile.
+- **FEA-31: Search by email** — `FeedView`'s "Find People" search now also matches by email address, not just username, via the same `search_profiles` SQL function used by the web app. The email itself is never part of the function's return signature, so it's never decoded into the app.
+- **FEA-32: Social Feed onboarding** — New `SocialFeedOnboardingView` announces the Social Feed to existing users the first time they open the app after updating: Find People, Feed, Reviews, and the Public/Private toggle, with an "Explore the Feed" button that jumps straight to the Feed tab. Shown exactly once, and only to people who already had the app installed — never to a fresh install, since there's nothing to announce relative to an experience they never had. Tracked via two `UserDefaults` flags (`showlog_has_launched_before`, `showlog_has_seen_social_feed_onboarding`) rather than the app's marketing version number, since Version/Build are edited by hand in Xcode and aren't a reliable signal.
+
+---
 
 ### v1.1 — Apr–May 2026
 

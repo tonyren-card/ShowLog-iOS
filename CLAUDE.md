@@ -17,11 +17,11 @@
 ## Project Structure
 ```
 ShowLog/Sources/
-├── Models/          # Show, DiaryEntry, ShowProgress, WatchStatus
+├── Models/          # Show, DiaryEntry, ShowProgress, WatchStatus, Profile
 ├── Services/        # SupabaseService, TMDBService
 ├── Views/
-│   ├── Components/  # ShowCard, StarRating, SectionHeader
-│   ├── HomeView, SearchView, WatchlistView, DiaryView, ProfileView
+│   ├── Components/  # ShowCard, StarRating, SectionHeader, AvatarView
+│   ├── HomeView (search embedded via .searchable), WatchlistView, DiaryView, ProfileView, FeedView
 │   ├── ShowDetailView, AuthView
 ├── AppState.swift   # Central state + all business logic methods
 ├── ContentView.swift
@@ -44,6 +44,8 @@ ShowLog/Sources/
 | `watched_shows` | `user_id`, `show_id`, `show_data` (JSONB) |
 | `diary_entries` | `id` (UUID), `user_id`, `show_id`, `show_data` (JSONB), `watched_at`, `notes`, `rating` (0.5–5) |
 | `show_progress` | `user_id`, `show_id`, `watched_episodes` (JSONB), `total_episodes` |
+| `profiles` | `id` (= auth user id), `username`, `avatar_url` (synced from auth metadata via trigger), `is_public` |
+| `follows` | `follower_id`, `following_id` |
 
 Show metadata is stored as JSONB (`show_data`) alongside every row — no separate shows table.
 

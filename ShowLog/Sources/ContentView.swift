@@ -9,9 +9,9 @@ struct ContentView: View {
                 .environmentObject(state)
                 .tabItem { Label("Home",      systemImage: "circle.grid.2x2.fill") }
                 .tag(0)
-            SearchView()
+            FeedView()
                 .environmentObject(state)
-                .tabItem { Label("Search",    systemImage: "magnifyingglass") }
+                .tabItem { Label("Feed",      systemImage: "heart") }
                 .tag(1)
             WatchlistView()
                 .environmentObject(state)
@@ -27,6 +27,12 @@ struct ContentView: View {
                 .tag(4)
         }
         .tint(Color.showGreen)
-        .task { await state.restoreSession() }
+        .task {
+            await state.restoreSession()
+            state.checkSocialFeedOnboarding()
+        }
+        .sheet(isPresented: $state.showSocialFeedOnboarding) {
+            SocialFeedOnboardingView().environmentObject(state)
+        }
     }
 }

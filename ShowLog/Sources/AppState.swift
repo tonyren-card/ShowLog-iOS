@@ -25,11 +25,43 @@ final class AppState: ObservableObject {
     @Published var diary:         [DiaryEntry] = []
     @Published var progress:      [Int: ShowProgress] = [:]  // showId → progress
 
+    // MARK: - Social
+    @Published var following:         Set<String> = []
+    @Published var followingProfiles: [String: Profile] = [:]
+    @Published var feed:              [DiaryEntry] = []
+    @Published var isPublic           = true
+    @Published var peopleQuery        = ""
+    @Published var peopleResults:     [Profile] = []
+    @Published var isSearchingPeople  = false
+    private var peopleSearchTask: Task<Void, Never>?
+
+    struct PopularShow: Identifiable {
+        let show: Show
+        let watcherCount: Int
+        var id: Int { show.id }
+    }
+
+    var popularWithFriends: [PopularShow] {
+        var counts: [Int: (show: Show, watchers: Set<String>)] = [:]
+        for entry in feed {
+            guard let uid = entry.userId else { continue }
+            var bucket = counts[entry.showId] ?? (show: entry.showData, watchers: [])
+            bucket.watchers.insert(uid)
+            counts[entry.showId] = bucket
+        }
+        return counts.values
+            .map { PopularShow(show: $0.show, watcherCount: $0.watchers.count) }
+            .sorted { $0.watcherCount > $1.watcherCount }
+            .prefix(6)
+            .map { $0 }
+    }
+
     // MARK: - UI state
     @Published var selectedShow:  Show?
     @Published var showAuthSheet  = false
     @Published var errorMessage:  String?
     @Published var selectedTab    = 0
+    @Published var showSocialFeedOnboarding = false
 
     var avatarUrl: String? { user?.userMetadata?.avatarUrl }
     @Published var isLoadingBrowse = false
@@ -43,6 +75,26 @@ final class AppState: ObservableObject {
             user = u
             await loadUserData()
         }
+    }
+
+    /// Shows the Social Feed announcement once, only to people who already had the app
+    /// installed before this feature shipped — never to a fresh install (nothing to
+    /// announce relative to an experience they never had) and never more than once.
+    /// Deliberately independent of the app's marketing version number, since that's
+    /// edited by hand in Xcode and isn't a reliable signal here.
+    func checkSocialFeedOnboarding() {
+        let defaults = UserDefaults.standard
+        let launchedKey = "showlog_has_launched_before"
+        let onboardingKey = "showlog_has_seen_social_feed_onboarding"
+        guard defaults.bool(forKey: launchedKey) else {
+            // First ever launch — nothing to announce, just mark both for the future.
+            defaults.set(true, forKey: launchedKey)
+            defaults.set(true, forKey: onboardingKey)
+            return
+        }
+        guard !defaults.bool(forKey: onboardingKey) else { return }
+        showSocialFeedOnboarding = true
+        defaults.set(true, forKey: onboardingKey)
     }
 
     func loadBrowse() async {
@@ -62,6 +114,7 @@ final class AppState: ObservableObject {
         async let wd  = SupabaseService.shared.loadWatched()
         async let d   = SupabaseService.shared.loadDiary()
         async let pr  = SupabaseService.shared.loadProgress()
+        async let social: () = loadSocialData()
         watchlist = (try? await wl) ?? []
         let watchedResult = try? await wd
         watched      = watchedResult?.ids ?? []
@@ -69,6 +122,7 @@ final class AppState: ObservableObject {
         diary     = (try? await d)  ?? []
         let prList = (try? await pr) ?? []
         progress  = Dictionary(uniqueKeysWithValues: prList.map { ($0.showId, $0) })
+        await social
     }
 
     func clearUserData() {
@@ -77,7 +131,66 @@ final class AppState: ObservableObject {
         watchedShows = []
         diary = []
         progress = [:]
+        following = []
+        followingProfiles = [:]
+        feed = []
+        isPublic = true
+        peopleQuery = ""
+        peopleResults = []
         user = nil
+    }
+
+    // MARK: - Social
+
+    func loadSocialData() async {
+        guard let uid = user?.id else { return }
+        async let idsTask     = SupabaseService.shared.loadFollowingIds()
+        async let profileTask = SupabaseService.shared.loadProfile(id: uid)
+        let ids = (try? await idsTask) ?? []
+        following = Set(ids)
+        if let profile = try? await profileTask {
+            isPublic = profile.isPublic
+        }
+        guard !ids.isEmpty else { followingProfiles = [:]; feed = []; return }
+        async let profilesTask = SupabaseService.shared.loadProfiles(ids: ids)
+        async let feedTask     = SupabaseService.shared.loadFeed(followingIds: ids)
+        let profiles = (try? await profilesTask) ?? []
+        followingProfiles = Dictionary(uniqueKeysWithValues: profiles.map { ($0.id, $0) })
+        feed = (try? await feedTask) ?? []
+    }
+
+    func followUser(_ profile: Profile) async {
+        guard isSignedIn else { showAuthSheet = true; return }
+        following.insert(profile.id)
+        followingProfiles[profile.id] = profile
+        try? await SupabaseService.shared.follow(id: profile.id)
+        await loadSocialData()
+    }
+
+    func unfollowUser(_ id: String) async {
+        guard isSignedIn else { return }
+        following.remove(id)
+        followingProfiles.removeValue(forKey: id)
+        feed.removeAll { $0.userId == id }
+        try? await SupabaseService.shared.unfollow(id: id)
+    }
+
+    func togglePrivacy() async {
+        guard isSignedIn else { return }
+        isPublic.toggle()
+        try? await SupabaseService.shared.updateIsPublic(isPublic)
+    }
+
+    func searchPeople(_ query: String) {
+        peopleSearchTask?.cancel()
+        guard !query.isEmpty, let uid = user?.id else { peopleResults = []; return }
+        peopleSearchTask = Task {
+            try? await Task.sleep(for: .milliseconds(400))
+            guard !Task.isCancelled else { return }
+            isSearchingPeople = true
+            peopleResults = (try? await SupabaseService.shared.searchProfiles(query: query, excluding: uid)) ?? []
+            isSearchingPeople = false
+        }
     }
 
     // MARK: - Auth actions

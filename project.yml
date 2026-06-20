@@ -1,8 +1,11 @@
 name: ShowLog
+configFiles:
+  Debug: Secrets.xcconfig
+  Release: Secrets.xcconfig
 options:
   bundleIdPrefix: com.tonyren
   deploymentTarget:
-    iOS: "17.0"
+    iOS: "16.0"
   xcodeVersion: "16"
 
 settings:
@@ -14,7 +17,7 @@ targets:
   ShowLog:
     type: application
     platform: iOS
-    deploymentTarget: "17.0"
+    deploymentTarget: "16.0"
     sources:
       - path: ShowLog/Sources
       - path: ShowLog/Assets.xcassets

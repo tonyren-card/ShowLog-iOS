@@ -173,7 +173,32 @@ struct ProfileView: View {
                             StatCell(value: "\(state.diary.count)", label: "Diary")
                             Divider().frame(height: 40).background(Color.border)
                             StatCell(value: "\(state.watchlist.count)", label: "Watchlist")
+                            Divider().frame(height: 40).background(Color.border)
+                            StatCell(value: "\(state.following.count)", label: "Following")
                         }
+                        .padding()
+                        .background(Color.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.border, lineWidth: 0.5))
+                        .padding(.horizontal, 20)
+
+                        // Privacy
+                        Toggle(isOn: Binding(
+                            get: { state.isPublic },
+                            set: { _ in Task { await state.togglePrivacy() } }
+                        )) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(state.isPublic ? "Public Profile" : "Private Profile")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(Color.textPrimary)
+                                Text(state.isPublic
+                                     ? "Anyone can see your diary, ratings, and reviews, and follow you."
+                                     : "Your profile and diary are hidden from everyone.")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(Color.textMuted)
+                            }
+                        }
+                        .tint(Color.showGreen)
                         .padding()
                         .background(Color.surface)
                         .clipShape(RoundedRectangle(cornerRadius: 12))

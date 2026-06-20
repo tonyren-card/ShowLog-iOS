@@ -9,6 +9,9 @@ struct ShowDetailView: View {
     @State private var showLogForm = false
     @State private var expandedSeasons: Set<Int> = []
     @State private var loadingSeasons: Set<Int> = []
+    @State private var communityReviews: [DiaryEntry]?
+    @State private var reviewerProfiles: [String: Profile] = [:]
+    @State private var loadingReviews = false
 
     private var detail: Show { loadedShow ?? show }
 
@@ -109,14 +112,21 @@ struct ShowDetailView: View {
                         Text("About").tag(0)
                         Text("Cast").tag(1)
                         Text("Seasons").tag(2)
+                        Text("Reviews").tag(3)
                     }
                     .pickerStyle(.segmented)
+                    .onChange(of: selectedTab) { tab in
+                        if tab == 3 && communityReviews == nil {
+                            Task { await loadCommunityReviews() }
+                        }
+                    }
 
                     // Tab content
                     switch selectedTab {
                     case 0: aboutTab
                     case 1: castTab
                     case 2: seasonsTab
+                    case 3: reviewsTab
                     default: EmptyView()
                     }
                 }
@@ -254,6 +264,90 @@ struct ShowDetailView: View {
                         }
                     }
                     loadingSeasons.remove(season.id)
+                }
+            }
+        }
+    }
+
+    // MARK: - Reviews tab
+
+    @ViewBuilder private var reviewsTab: some View {
+        if loadingReviews {
+            ProgressView().padding(.vertical, 16)
+        } else if let reviews = communityReviews, !reviews.isEmpty {
+            LazyVStack(alignment: .leading, spacing: 14) {
+                ForEach(reviews) { review in
+                    ReviewRow(
+                        review: review,
+                        profile: review.userId.flatMap { reviewerProfiles[$0] },
+                        isFollowing: review.userId.map { state.following.contains($0) } ?? false,
+                        isSelf: review.userId == state.user?.id
+                    )
+                    Divider().background(Color.border)
+                }
+            }
+        } else {
+            Text("No reviews yet. Be the first to log this show.")
+                .font(.system(size: 14))
+                .foregroundStyle(Color.textMuted)
+                .padding(.vertical, 16)
+        }
+    }
+
+    private func loadCommunityReviews() async {
+        loadingReviews = true
+        defer { loadingReviews = false }
+        let reviews = (try? await SupabaseService.shared.loadCommunityReviews(showId: detail.id)) ?? []
+        communityReviews = reviews
+        let ids = Set(reviews.compactMap(\.userId))
+        guard !ids.isEmpty else { return }
+        let profiles = (try? await SupabaseService.shared.loadProfiles(ids: Array(ids))) ?? []
+        reviewerProfiles = Dictionary(uniqueKeysWithValues: profiles.map { ($0.id, $0) })
+    }
+}
+
+// MARK: - Review row
+
+private struct ReviewRow: View {
+    @EnvironmentObject var state: AppState
+    let review: DiaryEntry
+    let profile: Profile?
+    let isFollowing: Bool
+    let isSelf: Bool
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            AvatarView(profile: profile, size: 30)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text(profile?.displayName ?? "Unknown")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color.textPrimary)
+                    if isFollowing {
+                        Text("Following")
+                            .font(.system(size: 10, weight: .semibold))
+                            .padding(.horizontal, 6).padding(.vertical, 2)
+                            .background(Color.showGreen.opacity(0.15))
+                            .foregroundStyle(Color.showGreen)
+                            .clipShape(Capsule())
+                    }
+                    Spacer()
+                    if !isSelf && !isFollowing, let profile {
+                        Button("Follow") { Task { await state.followUser(profile) } }
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Color.textPrimary)
+                    }
+                }
+                HStack(spacing: 8) {
+                    StarRatingSmall(rating: review.rating)
+                    Text(review.formattedDate)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(Color.textMuted)
+                }
+                if !review.notes.isEmpty {
+                    Text(review.notes)
+                        .font(.system(size: 13))
+                        .foregroundStyle(Color.textPrimary)
                 }
             }
         }

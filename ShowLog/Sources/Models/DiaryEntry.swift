@@ -7,6 +7,7 @@ struct DiaryEntry: Identifiable, Codable {
     var watchedAt: String   // ISO date string "YYYY-MM-DD"
     var notes: String
     var rating: Int         // 1–10 (displayed as 1–5 stars, half-star = 0.5)
+    var userId: String?     // owner of the entry — only populated for feed/community rows
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -14,6 +15,7 @@ struct DiaryEntry: Identifiable, Codable {
         case showData = "show_data"
         case watchedAt = "watched_at"
         case notes, rating
+        case userId   = "user_id"
     }
 
     init(from decoder: Decoder) throws {
@@ -23,6 +25,7 @@ struct DiaryEntry: Identifiable, Codable {
         showData  = try c.decode(Show.self, forKey: .showData)
         watchedAt = try c.decode(String.self, forKey: .watchedAt)
         notes     = try c.decodeIfPresent(String.self, forKey: .notes) ?? ""
+        userId    = try c.decodeIfPresent(String.self, forKey: .userId)
         // All ratings are stored on a 0.5–5 scale (web format).
         // Decode as Double (handles both integer and float JSON), multiply by 2 for internal 1–10 scale.
         if let r = try? c.decode(Double.self, forKey: .rating) {
